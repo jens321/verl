@@ -245,6 +245,7 @@ class vLLMRollout(BaseRollout):
             responses:     |<- LLM generation ->|<- tool_calls ->|<- LLM generation ->|<- padding ->|
             response_mask: | 1, 1, 1, ..., 1, 1 | 0, 0, .., 0, 0 | 1, 1, 1, ..., 1, 1 | 0, 0, ..., 0|
         """
+        breakpoint()
         idx = prompts.batch["input_ids"]  # (bs, prompt_length)
         # left-padded attention_mask
         attention_mask = prompts.batch["attention_mask"]
@@ -287,6 +288,7 @@ class vLLMRollout(BaseRollout):
 
         do_sample = prompts.meta_info.get("do_sample", True)
         is_validate = prompts.meta_info.get("validate", False)
+        is_hard_validate = prompts.meta_info.get("hard_validate", False)
         if not do_sample:
             kwargs = {
                 "best_of": 1,
@@ -303,6 +305,13 @@ class vLLMRollout(BaseRollout):
                 "top_p": self.config.val_kwargs.top_p,
                 "temperature": self.config.val_kwargs.temperature,
                 "n": 1,  # if validate, already repeat in ray_trainer
+            }
+        elif is_hard_validate:
+            kwargs = {
+                "top_k": self.config.hard_val_kwargs.top_k,
+                "top_p": self.config.hard_val_kwargs.top_p,
+                "temperature": self.config.hard_val_kwargs.temperature,
+                "n": 1, # if hard_validate, already repeat in ray_trainer
             }
 
         lora_requests = None
