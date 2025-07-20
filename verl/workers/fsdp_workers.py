@@ -32,6 +32,8 @@ from peft import LoraConfig, TaskType, get_peft_model
 from safetensors.torch import save_file
 from torch.distributed.device_mesh import init_device_mesh
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from sklearn.random_projection import SparseRandomProjection
+import numpy as np
 
 import verl.utils.torch_functional as verl_F
 from verl import DataProto
@@ -1645,6 +1647,27 @@ class EllipticalRewardModelWorker(RewardModelWorker):
         super().__init__(config)
         self.lamb = config.elliptical.lamb
         self.normalization = config.elliptical.normalization
+        self.sparse_dim = config.elliptical.sparse_dim
+        self.sparse_matrix = None
+
+    @staticmethod
+    def _construct_sparse_matrix(features: torch.Tensor, sparse_dim: int) -> torch.Tensor:
+        sparse_proj = SparseRandomProjection(sparse_dim, density="auto")
+        sparse_proj.fit(features)
+        sparse_matrix = sparse_proj.components_
+        sparse_matrix_coo = sparse_matrix.tocoo()
+
+        # Convert the row and col lists to numpy arrays and then to a LongTensor (speed up)
+        indices = torch.LongTensor(np.array([sparse_matrix_coo.row, sparse_matrix_coo.col]))
+        values = torch.FloatTensor(sparse_matrix_coo.data)
+
+        sparse_mat = torch.sparse_coo_tensor(
+            indices,
+            values,
+            [sparse_dim, features.shape[1]]
+        ).t()
+
+        return sparse_mat
 
     def _build_model(self, config):
         # the following line is necessary
@@ -1911,7 +1934,18 @@ class EllipticalRewardModelWorker(RewardModelWorker):
     @register(dispatch_mode=Dispatch.ALL_TO_ALL, execute_mode=Execute.RANK_ZERO)
     @DistProfiler.annotate(color="brown")
     def compute_rm_score(self, data: DataProto):
-        mean_hidden_states = data.batch["mean_hidden_states"].cuda().to(torch.float64)
+        if self.sparse_matrix is None:
+            d = data.batch["mean_hidden_states"].shape[-1]
+            self.sparse_matrix = self._construct_sparse_matrix(torch.zeros(1, d), self.sparse_dim)
+
+        mean_hidden_states = data.batch["mean_hidden_states"].cuda().float()
+
+        # sparse project
+        mean_hidden_states = mean_hidden_states @ self.sparse_matrix.cuda()
+
+        # upgrade to float64
+        mean_hidden_states = mean_hidden_states.to(torch.float64)
+
         seen_uids = set()
         reward_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32).cuda()
         raw_bonuses_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32).cuda()
