@@ -42,11 +42,13 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.
  reward_model.reward_manager=elliptical \
  reward_model.reward_kwargs.beta=1.0 \
  algorithm.use_kl_in_reward=False \
+ trainer.val_hard_subset=True \
  trainer.critic_warmup=0 \
- trainer.logger='["console","wandb"]' \
+ trainer.logger='["console"]' \
  trainer.val_before_train=True \
  trainer.n_gpus_per_node=1 \
  trainer.nnodes=1 \
  trainer.save_freq=10 \
  trainer.test_freq=10 \
- trainer.total_epochs=15 2>&1 | tee verl_demo.log
+ trainer.total_epochs=15 \
+ trainer.seed=41 2>&1 | tee verl_demo.log
