@@ -194,6 +194,9 @@ algorithm:
 # config for the trainer
 trainer:
 
+  # Random seed for reproducibility
+  seed: 42
+
   # Whether to balance batch sizes across distributed workers
   balance_batch: True
 
