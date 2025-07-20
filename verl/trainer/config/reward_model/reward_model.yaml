@@ -9,6 +9,15 @@ enable: False
 # FSDP strategy: "fsdp" or "fsdp2"
 strategy: ???
 
+elliptical:
+  enable: False
+  lamb: 0.01
+  normalization: z_score
+  reward_type: leave_one_out # alternative: leverage
+
+reward_kwargs:
+  beta: 1.0
+
 # model config for reward scoring
 model:
 
