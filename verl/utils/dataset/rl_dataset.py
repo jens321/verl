@@ -172,6 +172,18 @@ class RLHFDataset(Dataset):
 
         self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
 
+    def maybe_filter_only_hard_prompts(self, dataframe: datasets.Dataset = None):
+        if self.filter_only_hard_prompts:
+            hard_indices = None
+            if self.config.task == "math":
+                hard_indices = self.config.math_hard_indices
+            elif self.config.task == "gsm8k":
+                hard_indices = self.config.gsm8k_hard_indices
+
+            breakpoint()
+
+        return dataframe
+
     def maybe_filter_out_long_prompts(self, dataframe: datasets.Dataset = None):
         # filter out too long prompts
         if self.filter_overlong_prompts:
