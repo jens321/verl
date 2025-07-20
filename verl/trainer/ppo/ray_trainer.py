@@ -776,7 +776,6 @@ class RayPPOTrainer:
                 if not self.async_rollout_mode
                 else self.config.actor_rollout_ref.rollout.agent.num_workers
             )
-            breakpoint()
             test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(test_gen_batch, size_divisor)
             if not self.async_rollout_mode:
                 test_output_gen_batch_padded = self.actor_rollout_wg.generate_sequences(test_gen_batch_padded)
@@ -833,16 +832,25 @@ class RayPPOTrainer:
 
         data_sources = np.concatenate(data_source_lst, axis=0)
 
-        data_src2var2metric2val = process_validation_metrics(data_sources, sample_inputs, reward_extra_infos_dict)
-        subset_data_src2var2metric2val = process_validation_metrics(
+        data_src2var2metric2val = process_validation_metrics(
             data_sources, 
             sample_inputs, 
-            reward_extra_infos_dict, 
-            subset_indices=set(hard_indices),
-            metric_postfix="-hard-subset"
+            reward_extra_infos_dict,
+            metric_postfix=f"-hard-subset-temp-{val_kwargs.temperature}" if hard_validate else ""
         )
-        for data_source in data_src2var2metric2val:
-            data_src2var2metric2val[data_source].update(subset_data_src2var2metric2val[data_source])
+
+        # only compute subset metrics for full dataset validation
+        if not hard_validate:
+            subset_data_src2var2metric2val = process_validation_metrics(
+                data_sources, 
+                sample_inputs, 
+                reward_extra_infos_dict, 
+                subset_indices=set(hard_indices),
+                metric_postfix="-hard-subset"
+            )
+            for data_source in data_src2var2metric2val:
+                data_src2var2metric2val[data_source].update(subset_data_src2var2metric2val[data_source])
+
         metric_dict = {}
         for data_source, var2metric2val in data_src2var2metric2val.items():
             core_var = "acc" if "acc" in var2metric2val else "reward"
@@ -1137,10 +1145,9 @@ class RayPPOTrainer:
 
             # hard dataset validation
             if self.config.trainer.val_hard_subset:
-                hard_val_metrics = self._validate(self.hard_val_dataloader, self.config.actor_rollout_ref.rollout.hard_val_kwargs)
+                hard_val_metrics = self._validate(self.hard_val_dataloader, self.config.actor_rollout_ref.rollout.hard_val_kwargs, hard_validate=True)
                 assert hard_val_metrics, f"{hard_val_metrics=}"
-                # TODO: merge with full dataset validation
-                breakpoint()
+                val_metrics.update(hard_val_metrics)
 
             pprint(f"Initial validation metrics: {val_metrics}")
             logger.log(data=val_metrics, step=self.global_steps)
@@ -1394,9 +1401,8 @@ class RayPPOTrainer:
                         with marked_timer("testing", timing_raw, color="green"):
                             val_metrics: dict = self._validate(self.val_dataloader, self.config.actor_rollout_ref.rollout.val_kwargs)
                             if self.config.trainer.val_hard_subset:
-                                hard_val_metrics: dict = self._validate(self.hard_val_dataloader, self.config.actor_rollout_ref.rollout.hard_val_kwargs)
-                                # TODO: merge with full dataset validation metrics
-                                breakpoint()
+                                hard_val_metrics: dict = self._validate(self.hard_val_dataloader, self.config.actor_rollout_ref.rollout.hard_val_kwargs, hard_validate=True)
+                                val_metrics.update(hard_val_metrics)
                             if is_last_step:
                                 last_val_metrics = val_metrics
                         metrics.update(val_metrics)
