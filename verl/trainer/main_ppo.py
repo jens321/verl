@@ -206,7 +206,10 @@ class TaskRunner:
             use_legacy_worker_impl = config.trainer.get("use_legacy_worker_impl", "auto")
             if use_legacy_worker_impl in ["auto", "enable"]:
                 if config.reward_model.strategy in {"fsdp", "fsdp2"}:
-                    from verl.workers.fsdp_workers import RewardModelWorker
+                    if config.reward_model.elliptical:
+                        from verl.workers.fsdp_workers import EllipticalRewardModelWorker as RewardModelWorker
+                    else:
+                        from verl.workers.fsdp_workers import RewardModelWorker
                 elif config.reward_model.strategy == "megatron":
                     from verl.workers.megatron_workers import RewardModelWorker
                 else:
