@@ -17,7 +17,9 @@ Note that we don't combine the main with ray_trainer as ray_trainer is used by o
 
 import os
 import socket
-
+import torch
+import numpy as np
+import random
 import hydra
 import ray
 from omegaconf import OmegaConf
@@ -52,6 +54,11 @@ def run_ppo(config, task_runner_class=None) -> None:
                 model paths, and training hyperparameters.
         task_runner_class: For recipe to change TaskRunner.
     """
+    # Set seeds
+    torch.manual_seed(config.trainer.seed)
+    np.random.seed(config.trainer.seed)
+    random.seed(config.trainer.seed)
+
     # Check if Ray is not initialized
     if not ray.is_initialized():
         # Initialize Ray with a local cluster configuration
