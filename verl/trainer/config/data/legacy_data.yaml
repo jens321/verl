@@ -34,6 +34,9 @@ train_batch_size: 1024
 # Batch size used during validation. Can be null.
 val_batch_size: null
 
+# Batch size used during hard validation. Can be null.
+hard_val_batch_size: null
+
 # Whether to return the original input_ids without adding chat template.
 # This is used when the reward model's chat template differs from the policy.
 # If using a model-based RM with different templates, this should be True.
@@ -107,3 +110,7 @@ datagen:
   # The class name of the data generation class within the specified file.
   # E.g. 'MockDataGenerator'
   name: null
+
+math_hard_indices: [414, 333, 91, 295, 7, 758, 213, 595, 635, 427, 106, 437, 20, 724, 95, 525, 319, 594, 390, 447, 479, 616, 753, 620, 29, 230, 423, 50, 391, 249, 220, 23, 617, 770, 542, 683, 346, 564, 136, 352, 739, 382, 454, 734, 730, 121, 107, 727, 548, 361]
+gsm8k_hard_indices: [368, 454, 119, 406, 403, 380, 255, 12, 89, 87, 37, 75, 409, 187, 62, 423, 298, 236, 267, 7, 234, 439, 428, 359, 510, 353, 394, 197, 102, 340, 307, 443, 245, 201, 147, 241, 209, 453, 322, 494, 124, 306, 330, 107, 427, 508, 205, 199, 493, 304]
+task: gsm8k
