@@ -844,7 +844,6 @@ class RayPPOTrainer:
 
         # only compute subset metrics for full dataset validation
         if not hard_validate:
-            breakpoint()
             problem_idxs = np.concatenate(problem_idxs)
             is_hard = np.isin(problem_idxs, hard_indices)
             subset_indices = is_hard.nonzero()[0].tolist()
