@@ -11,6 +11,8 @@
 slurm_output/
 figures/
 eval/
+scripts/train_grpo_math.slurm
+scripts/train_grpo_math.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
