@@ -188,7 +188,10 @@ class TaskRunner:
         # The reward type depends on the tag of the data
         if config.reward_model.enable:
             if config.reward_model.strategy in {"fsdp", "fsdp2"}:
-                from verl.workers.fsdp_workers import RewardModelWorker
+                if config.reward_model.elliptical:
+                    from verl.workers.fsdp_workers import EllipticalRewardModelWorker as RewardModelWorker
+                else:
+                    from verl.workers.fsdp_workers import RewardModelWorker
             elif config.reward_model.strategy == "megatron":
                 from verl.workers.megatron_workers import RewardModelWorker
             else:
@@ -239,7 +242,7 @@ class TaskRunner:
         trainer.fit()
 
 
-def create_rl_dataset(data_paths, data_config, tokenizer, processor, is_train=True):
+def create_rl_dataset(data_paths, data_config, tokenizer, processor, is_train=True, filter_only_hard_prompts=False):
     """Create a dataset.
 
     Arguments:
@@ -284,6 +287,7 @@ def create_rl_dataset(data_paths, data_config, tokenizer, processor, is_train=Tr
         tokenizer=tokenizer,
         processor=processor,
         config=data_config,
+        filter_only_hard_prompts=filter_only_hard_prompts,
     )
 
     return dataset
