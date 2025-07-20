@@ -14,6 +14,7 @@ elliptical:
   lamb: 0.01
   normalization: z_score
   reward_type: leave_one_out # alternative: leverage
+  sparse_dim: 512
 
 reward_kwargs:
   beta: 1.0
