@@ -51,12 +51,15 @@ class Tracking:
 
         if "tracking" in default_backend or "wandb" in default_backend:
             import wandb
+            from wandb_osh.hooks import TriggerWandbSyncHook
 
             settings = None
             if config and config["trainer"].get("wandb_proxy", None):
                 settings = wandb.Settings(https_proxy=config["trainer"]["wandb_proxy"])
+            trigger_sync = TriggerWandbSyncHook()
             wandb.init(project=project_name, name=experiment_name, config=config, settings=settings)
             self.logger["wandb"] = wandb
+            self.trigger_sync = trigger_sync
 
         if "mlflow" in default_backend:
             import os
@@ -132,6 +135,8 @@ class Tracking:
         for default_backend, logger_instance in self.logger.items():
             if backend is None or default_backend in backend:
                 logger_instance.log(data=data, step=step)
+                if default_backend == "wandb":
+                    self.trigger_sync()
 
     def __del__(self):
         if "wandb" in self.logger:
