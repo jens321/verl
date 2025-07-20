@@ -725,8 +725,11 @@ class RayPPOTrainer:
         elif self.config.data.task == "gsm8k":
             hard_indices = self.config.data.gsm8k_hard_indices
 
+        problem_idxs = []
         for test_data in val_dataloader:
-            test_batch = DataProto.from_single_dict(test_data)            
+            test_batch = DataProto.from_single_dict(test_data) 
+
+            problem_idxs.append(test_batch.non_tensor_batch["index"])
 
             # repeat test batch
             test_batch = test_batch.repeat(
@@ -841,11 +844,16 @@ class RayPPOTrainer:
 
         # only compute subset metrics for full dataset validation
         if not hard_validate:
+            breakpoint()
+            problem_idxs = np.concatenate(problem_idxs)
+            is_hard = np.isin(problem_idxs, hard_indices)
+            subset_indices = is_hard.nonzero()[0].tolist()
+
             subset_data_src2var2metric2val = process_validation_metrics(
                 data_sources, 
                 sample_inputs, 
                 reward_extra_infos_dict, 
-                subset_indices=set(hard_indices),
+                subset_indices=set(subset_indices),
                 metric_postfix="-hard-subset"
             )
             for data_source in data_src2var2metric2val:
