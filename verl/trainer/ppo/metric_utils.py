@@ -77,7 +77,7 @@ def _compute_response_info(batch: DataProto) -> dict[str, Any]:
     )
 
 
-def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str, Any]:
+def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: bool = False) -> dict[str, Any]:
     """
     Computes various metrics from a batch of data for PPO training.
 
@@ -103,6 +103,13 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str,
     """
     sequence_score = batch.batch["token_level_scores"].sum(-1)
     sequence_reward = batch.batch["token_level_rewards"].sum(-1)
+
+    if elliptical:
+        sequence_intrinsic_reward = batch.non_tensor_batch["intrinsic_reward"].sum(-1)
+        sequence_beta_scaled_intrinsic_reward = batch.non_tensor_batch["beta_scaled_intrinsic_reward"].sum(-1)
+        sequence_extrinsic_reward = batch.non_tensor_batch["extrinsic_reward"].sum(-1)
+        sequence_total_reward = batch.non_tensor_batch["total_reward"].sum(-1)
+        sequence_raw_bonuses = batch.non_tensor_batch["raw_bonuses"].sum(-1)
 
     advantages = batch.batch["advantages"]
     returns = batch.batch["returns"]
@@ -154,6 +161,37 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str,
                 "critic/vf_explained_var": (1.0 - return_diff_var / (return_var + 1e-5)).detach().item(),
             }
             if use_critic
+            else {}
+        ),
+        **(
+            {
+                # raw bonuses
+                "critic/raw_bonuses/mean": np.mean(sequence_raw_bonuses).item(),
+                "critic/raw_bonuses/max": np.max(sequence_raw_bonuses).item(),
+                "critic/raw_bonuses/min": np.min(sequence_raw_bonuses).item(),
+                "critic/raw_bonuses/std": np.std(sequence_raw_bonuses).item(),
+                # intrinsic_reward
+                "critic/intrinsic_reward/mean": np.mean(sequence_intrinsic_reward).item(),
+                "critic/intrinsic_reward/max": np.max(sequence_intrinsic_reward).item(),
+                "critic/intrinsic_reward/min": np.min(sequence_intrinsic_reward).item(),
+                "critic/intrinsic_reward/std": np.std(sequence_intrinsic_reward).item(),
+                # beta_scaled_intrinsic_reward
+                "critic/beta_scaled_intrinsic_reward/mean": np.mean(sequence_beta_scaled_intrinsic_reward).item(),
+                "critic/beta_scaled_intrinsic_reward/max": np.max(sequence_beta_scaled_intrinsic_reward).item(),
+                "critic/beta_scaled_intrinsic_reward/min": np.min(sequence_beta_scaled_intrinsic_reward).item(),
+                "critic/beta_scaled_intrinsic_reward/std": np.std(sequence_beta_scaled_intrinsic_reward).item(),
+                # extrinsic_reward
+                "critic/extrinsic_reward/mean": np.mean(sequence_extrinsic_reward).item(),
+                "critic/extrinsic_reward/max": np.max(sequence_extrinsic_reward).item(),
+                "critic/extrinsic_reward/min": np.min(sequence_extrinsic_reward).item(),
+                "critic/extrinsic_reward/std": np.std(sequence_extrinsic_reward).item(),
+                # total_reward
+                "critic/total_reward/mean": np.mean(sequence_total_reward).item(),
+                "critic/total_reward/max": np.max(sequence_total_reward).item(),
+                "critic/total_reward/min": np.min(sequence_total_reward).item(),
+                "critic/total_reward/std": np.std(sequence_total_reward).item(),
+            }
+            if elliptical
             else {}
         ),
         # response length
@@ -336,7 +374,7 @@ def calc_maj_val(data: list[dict[str, Any]], vote_key: str, val_key: str) -> flo
 
 
 def process_validation_metrics(
-    data_sources: list[str], sample_inputs: list[str], infos_dict: dict[str, list[Any]], seed: int = 42
+    data_sources: list[str], sample_inputs: list[str], infos_dict: dict[str, list[Any]], seed: int = 42, subset_indices: set[int] = None, metric_postfix: str = ""
 ) -> dict[str, dict[str, dict[str, float]]]:
     """
     Process validation metrics into a structured format with statistical analysis.
@@ -382,10 +420,12 @@ def process_validation_metrics(
     # Group metrics by data source, prompt and variable
     data_src2prompt2var2vals = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     for sample_idx, data_source in enumerate(data_sources):
+        if subset_indices is not None and sample_idx not in subset_indices:
+            continue
         prompt = sample_inputs[sample_idx]
         var2vals = data_src2prompt2var2vals[data_source][prompt]
         for var_name, var_vals in infos_dict.items():
-            var2vals[var_name].append(var_vals[sample_idx])
+            var2vals[var_name + metric_postfix].append(var_vals[sample_idx])
 
     # Calculate metrics for each group
     data_src2prompt2var2metric = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
