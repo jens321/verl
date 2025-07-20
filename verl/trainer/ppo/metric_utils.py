@@ -372,6 +372,11 @@ def calc_maj_val(data: list[dict[str, Any]], vote_key: str, val_key: str) -> flo
 
     return maj_val
 
+def comb_estimator(n: int, c: int, k: int) -> float:
+    """Calculates 1 - comb(n - c, k) / comb(n, k)."""
+    if n - c < k:
+        return 1.0
+    return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
 
 def process_validation_metrics(
     data_sources: list[str], sample_inputs: list[str], infos_dict: dict[str, list[Any]], seed: int = 42, subset_indices: set[int] = None, metric_postfix: str = ""
@@ -455,6 +460,7 @@ def process_validation_metrics(
                         )
                         metric[f"best@{n}/mean"], metric[f"best@{n}/std"] = bon_mean, bon_std
                         metric[f"worst@{n}/mean"], metric[f"worst@{n}/std"] = won_mean, won_std
+                        metric[f"pass@{n}/mean"] = comb_estimator(n_resps, np.sum(var_vals), n)
                         if var2vals.get("pred", None) is not None:
                             vote_data = [
                                 {"val": val, "pred": pred} for val, pred in zip(var_vals, var2vals["pred"], strict=True)
