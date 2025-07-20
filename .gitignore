@@ -8,6 +8,8 @@
 **/*.tar.gz
 **/playground
 **/wandb
+scripts/train_grpo_math.slurm
+scripts/train_grpo_math.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
