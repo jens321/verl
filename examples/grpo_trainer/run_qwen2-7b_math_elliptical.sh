@@ -46,6 +46,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.
     reward_model.reward_manager=elliptical \
     reward_model.reward_kwargs.beta=1.0 \
     algorithm.use_kl_in_reward=False \
+    trainer.val_hard_subset=True \
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
     trainer.project_name='verl_grpo_example_gsm8k_math' \
@@ -54,4 +55,5 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.
     trainer.nnodes=1 \
     trainer.save_freq=20 \
     trainer.test_freq=5 \
-    trainer.total_epochs=15 $@
+    trainer.total_epochs=15 \
+    trainer.seed=41 $@
