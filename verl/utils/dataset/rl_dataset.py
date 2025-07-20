@@ -150,7 +150,7 @@ class RLHFDataset(Dataset):
             elif self.config.task == "gsm8k":
                 hard_indices = self.config.gsm8k_hard_indices
 
-            breakpoint()
+            return dataframe.select(hard_indices)
 
         return dataframe
 
