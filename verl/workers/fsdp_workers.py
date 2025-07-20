@@ -37,7 +37,7 @@ import verl.utils.torch_functional as verl_F
 from verl import DataProto
 from verl.models.transformers.monkey_patch import apply_monkey_patch
 from verl.single_controller.base import Worker
-from verl.single_controller.base.decorator import Dispatch, register
+from verl.single_controller.base.decorator import Dispatch, Execute, register
 from verl.utils import hf_processor, hf_tokenizer
 from verl.utils.activation_offload import enable_activation_offloading
 from verl.utils.checkpoint.fsdp_checkpoint_manager import FSDPCheckpointManager
@@ -1640,6 +1640,318 @@ class RewardModelWorker(Worker, DistProfilerExtension):
         output = output.to("cpu")
         return output
 
+class EllipticalRewardModelWorker(RewardModelWorker):
+    def __init__(self, config):
+        super().__init__(config)
+        self.lamb = config.elliptical.lamb
+        self.normalization = config.elliptical.normalization
+
+    def _build_model(self, config):
+        # the following line is necessary
+        from torch.distributed.fsdp import CPUOffload
+        from transformers import AutoConfig, AutoModel
+
+        use_shm = config.model.get("use_shm", False)
+        # download the checkpoint from hdfs
+        local_path = copy_to_local(config.model.path, use_shm=use_shm)
+
+        if self.config.model.input_tokenizer is None:
+            self._do_switch_chat_template = False
+        else:
+            self._do_switch_chat_template = True
+            input_tokenizer_local_path = copy_to_local(config.model.input_tokenizer, use_shm=use_shm)
+            self.input_tokenizer = hf_tokenizer(
+                input_tokenizer_local_path, trust_remote_code=config.model.get("trust_remote_code", False)
+            )
+            self.tokenizer = hf_tokenizer(local_path, trust_remote_code=config.model.get("trust_remote_code", False))
+
+        trust_remote_code = config.model.get("trust_remote_code", False)
+        model_config = AutoConfig.from_pretrained(local_path, trust_remote_code=trust_remote_code)
+        model_config.num_labels = 1
+
+        # note that we have to create model in fp32. Otherwise, the optimizer is in bf16, which is incorrect
+        init_context = get_init_weight_context_manager(
+            use_meta_tensor=not model_config.tie_word_embeddings, mesh=self.device_mesh
+        )
+
+        with init_context(), warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model_config.classifier_dropout = 0.0
+            reward_module = AutoModel.from_pretrained(
+                pretrained_model_name_or_path=local_path,
+                config=model_config,
+                torch_dtype=torch.bfloat16,
+                attn_implementation="flash_attention_2",
+                trust_remote_code=trust_remote_code,
+            )   
+
+            apply_monkey_patch(
+                model=reward_module,
+                use_remove_padding=config.model.get("use_remove_padding", False),
+                ulysses_sp_size=self.ulysses_sequence_parallel_size,
+            )
+
+            reward_module.to(torch.bfloat16)
+
+        auto_wrap_policy = get_fsdp_wrap_policy(module=reward_module, config=self.config.model.fsdp_config)
+
+        fsdp_mesh = self.device_mesh
+        sharding_strategy = get_sharding_strategy(fsdp_mesh)
+
+        if config.strategy == "fsdp":
+            reward_module = FSDP(
+                reward_module,
+                param_init_fn=init_fn,
+                use_orig_params=False,
+                auto_wrap_policy=auto_wrap_policy,
+                device_id=get_device_id(),
+                sharding_strategy=sharding_strategy,  # zero3
+                sync_module_states=True,
+                cpu_offload=CPUOffload(offload_params=True),
+                forward_prefetch=self.config.model.fsdp_config.forward_prefetch,
+                device_mesh=self.device_mesh,
+            )
+        elif config.strategy == "fsdp2":
+            assert CPUOffloadPolicy is not None, "PyTorch version >= 2.4 is required for using fully_shard API (FSDP2)"
+            cpu_offload = CPUOffloadPolicy(pin_memory=True)
+            fsdp_kwargs = {
+                "mesh": fsdp_mesh,
+                "offload_policy": cpu_offload,
+                "reshard_after_forward": config.model.fsdp_config.reshard_after_forward,
+            }
+            full_state = reward_module.state_dict()
+            apply_fsdp2(reward_module, fsdp_kwargs, config.model.fsdp_config)
+            fsdp2_load_full_state_dict(reward_module, full_state, fsdp_mesh, cpu_offload)
+        else:
+            raise NotImplementedError(f"Unknown strategy: {config.strategy}")
+        return reward_module
+
+    def _forward_micro_batch(self, micro_batch, start_of_response: int):
+        if is_cuda_available:
+            from flash_attn.bert_padding import index_first_axis, pad_input, rearrange, unpad_input
+        elif is_npu_available:
+            from transformers.integrations.npu_flash_attention import (
+                index_first_axis,
+                pad_input,
+                rearrange,
+                unpad_input,
+            )
+
+        from verl.utils.ulysses import gather_outpus_and_unpad, ulysses_pad_and_slice_inputs
+
+        with torch.no_grad(), torch.autocast(device_type=device_name, dtype=torch.bfloat16):
+            input_ids = micro_batch["input_ids"]
+            batch_size, seqlen = input_ids.shape
+            attention_mask = micro_batch["attention_mask"]
+            position_ids = micro_batch["position_ids"]
+            if position_ids.dim() == 3:  # qwen2vl mrope
+                position_ids = position_ids.transpose(0, 1)  # (bsz, 3, seqlen) -> (3, bsz, seqlen)
+
+            if self.use_remove_padding:
+                input_ids_rmpad, indices, *_ = unpad_input(
+                    input_ids.unsqueeze(-1), attention_mask
+                )  # input_ids_rmpad (total_nnz, ...)
+                input_ids_rmpad = input_ids_rmpad.transpose(0, 1)  # (1, total_nnz)
+
+                # unpad the position_ids to align the rotary
+                if position_ids.dim() == 3:
+                    position_ids_rmpad = (
+                        index_first_axis(rearrange(position_ids, "c b s ... -> (b s) c ..."), indices)
+                        .transpose(0, 1)
+                        .unsqueeze(1)
+                    )  # (3, bsz, seqlen) -> (3, 1, bsz * seqlen)
+                else:
+                    position_ids_rmpad = index_first_axis(
+                        rearrange(position_ids.unsqueeze(-1), "b s ... -> (b s) ..."), indices
+                    ).transpose(0, 1)
+
+                # pad and slice the inputs if sp > 1
+                if self.ulysses_sequence_parallel_size > 1:
+                    input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad_and_slice_inputs(
+                        input_ids_rmpad, position_ids_rmpad, sp_size=self.ulysses_sequence_parallel_size
+                    )
+
+                # only pass input_ids and position_ids to enable flash_attn_varlen
+                output = self.reward_module(
+                    input_ids=input_ids_rmpad, attention_mask=None, position_ids=position_ids_rmpad, use_cache=False
+                )
+                reward_rmpad = output.logits
+                reward_rmpad = reward_rmpad.squeeze(0)  # (total_nnz)
+
+                # gather output if sp > 1
+                if self.ulysses_sequence_parallel_size > 1:
+                    reward_rmpad = gather_outpus_and_unpad(
+                        reward_rmpad, gather_dim=0, unpad_dim=0, padding_size=pad_size
+                    )
+
+                # pad it back
+                rm_score = pad_input(reward_rmpad, indices=indices, batch=batch_size, seqlen=seqlen).squeeze(-1)
+            else:
+                output = self.reward_module(
+                    input_ids=input_ids, attention_mask=attention_mask, position_ids=position_ids, use_cache=False
+                )
+
+                sequence_lengths = attention_mask[:, start_of_response:].sum(dim=1)
+                mean_hidden_states = []
+                for i, seq_len in enumerate(sequence_lengths):
+                    mean_hidden_states.append(output.last_hidden_state[i, start_of_response:start_of_response+seq_len].mean(dim=0))
+                mean_hidden_states = torch.stack(mean_hidden_states)
+
+            return mean_hidden_states
+
+    @register(dispatch_mode=Dispatch.DP_COMPUTE_PROTO)
+    @DistProfiler.annotate(color="brown")
+    def compute_hidden_states(self, data: DataProto):
+        import itertools
+
+        from verl.utils.seqlen_balancing import get_reverse_idx, rearrange_micro_batches
+
+        # Support all hardwares
+        data = data.to(get_device_id())
+        if self._do_switch_chat_template:
+            rm_data = self._switch_chat_template(data)
+        else:
+            rm_input_ids = data.batch["input_ids"]
+            rm_attention_mask = data.batch["attention_mask"]
+            rm_position_ids = data.batch["position_ids"]
+            rm_inputs = {
+                "input_ids": rm_input_ids,
+                "attention_mask": rm_attention_mask,
+                "position_ids": rm_position_ids,
+            }
+            rm_data = DataProto.from_dict(rm_inputs)
+
+        # Support all hardwares
+        rm_data.batch = rm_data.batch.to(get_device_id())
+
+        # perform forward computation
+        with self.ulysses_sharding_manager:
+            rm_data = self.ulysses_sharding_manager.preprocess_data(data=rm_data)
+            data = self.ulysses_sharding_manager.preprocess_data(data=data)
+
+            use_dynamic_bsz = self.config.use_dynamic_bsz
+            if use_dynamic_bsz:
+                max_token_len = self.config.forward_max_token_len_per_gpu * self.ulysses_sequence_parallel_size
+                micro_batches, indices = rearrange_micro_batches(batch=rm_data.batch, max_token_len=max_token_len)
+            else:
+                micro_batches = rm_data.batch.split(self.config.micro_batch_size_per_gpu)
+            output = []
+            for micro_batch in micro_batches:
+                mean_hidden_states = self._forward_micro_batch(micro_batch, start_of_response=data.batch["prompts"].shape[-1])
+                output.append(mean_hidden_states)
+            mean_hidden_states = torch.cat(output, dim=0)  # (batch_size)
+
+            # NOTE(Jens): this has not been thoroughly checked
+            if use_dynamic_bsz:
+                indices = list(itertools.chain.from_iterable(indices))
+                assert len(indices) == mean_hidden_states.size(0), f"{len(indices)} vs. {mean_hidden_states.size()}"
+                revert_indices = torch.tensor(get_reverse_idx(indices), dtype=torch.long)
+                mean_hidden_states = mean_hidden_states[revert_indices]
+
+            # Note that this is only the scores, may not be the final rewards used to train RL
+            output = DataProto.from_dict(tensors={"mean_hidden_states": mean_hidden_states})
+            output = self.ulysses_sharding_manager.postprocess_data(data=output) # TODO: check what this does
+
+        # https://pytorch.org/docs/stable/notes/fsdp.html#fsdp-notes
+        # unshard the root FSDP module
+        if self.world_size > 1 and fsdp_version(self.reward_module) == 1:
+            self.reward_module._handle.reshard(True)
+
+        output = output.to("cpu")
+        return output
+
+    def _compute_bonuses(self, centered_mean_hidden_states, cov_inv):
+        if self.config.elliptical.reward_type == 'leave_one_out':
+            bonuses = []
+            for i, hidden_state in enumerate(centered_mean_hidden_states):
+                chosen_samp = hidden_state.unsqueeze(1)
+                middle_part = torch.inverse(1 - chosen_samp.t() @ cov_inv @ chosen_samp)
+                leave_one_out_cov_inv = cov_inv + cov_inv @ chosen_samp @ middle_part @ chosen_samp.t() @ cov_inv
+                bonus = (chosen_samp.t() @ leave_one_out_cov_inv @ chosen_samp).flatten().float()
+                bonuses.append(bonus)
+
+                # d = centered_mean_hidden_states.shape[-1]
+                # cov_inv_new = torch.eye(d, dtype=torch.float64).cuda() * self.lamb ** -1
+                # for j in range(len(centered_mean_hidden_states)):
+                #     if i == j:
+                #         continue
+                #     chosen_samp = centered_mean_hidden_states[j].unsqueeze(1)
+                #     middle_part = torch.inverse(1 + chosen_samp.t() @ cov_inv_new @ chosen_samp)
+                #     cov_inv_new = cov_inv_new - cov_inv_new @ chosen_samp @ middle_part @ chosen_samp.t() @ cov_inv_new
+                # chosen_samp = hidden_state.unsqueeze(1)
+                # bonus_new = (chosen_samp.t() @ cov_inv_new @ chosen_samp).flatten().float()
+                # assert bonus_new == bonus, f"bonus_new: {bonus_new} != bonus: {bonus}"
+                # assert torch.allclose(leave_one_out_cov_inv, cov_inv_new)
+
+            bonuses = torch.concat(bonuses)
+
+        elif self.config.elliptical.reward_type == 'leverage':
+            batch_cov_inv = cov_inv.unsqueeze(0).expand(centered_mean_hidden_states.shape[0], -1, -1)
+            bonuses = (centered_mean_hidden_states.unsqueeze(1) @ batch_cov_inv @ centered_mean_hidden_states.unsqueeze(2)).flatten().float()
+
+        return bonuses
+
+    def _normalize_bonuses(self, bonuses):
+        if self.normalization == 'rnd':
+            std = torch.std(bonuses)
+            if std > 0:
+                bonuses = bonuses / std
+        elif self.normalization == 'z_score':
+            mean = torch.mean(bonuses)
+            std = torch.std(bonuses)
+            if std > 0:
+                bonuses = (bonuses - mean) / std
+            else:
+                bonuses = bonuses - mean
+        else:
+            raise ValueError(f"Unknown normalization: {self.normalization}")
+        
+        return bonuses
+        
+    @register(dispatch_mode=Dispatch.ALL_TO_ALL, execute_mode=Execute.RANK_ZERO)
+    @DistProfiler.annotate(color="brown")
+    def compute_rm_score(self, data: DataProto):
+        mean_hidden_states = data.batch["mean_hidden_states"].cuda().to(torch.float64)
+        seen_uids = set()
+        reward_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32).cuda()
+        raw_bonuses_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32).cuda()
+        for i in range(len(data)):
+            data_item = data[i]
+            uid = data_item.non_tensor_batch["uid"]
+            if uid in seen_uids:
+                continue
+
+            seen_uids.add(uid)
+            mask = data.non_tensor_batch['uid'] == uid
+            filtered_mean_hidden_states = mean_hidden_states[mask]
+            centered_mean_hidden_states = filtered_mean_hidden_states - filtered_mean_hidden_states.mean(dim=0)
+
+            # construct inverse covariance matrix
+            d = centered_mean_hidden_states.shape[-1]
+            cov_inv = torch.eye(d, dtype=torch.float64).cuda() * self.lamb ** -1
+
+            # update inverse covariance matrix with rank-1 updates
+            for hidden_state in centered_mean_hidden_states:
+                chosen_samp = hidden_state.unsqueeze(1)
+                middle_part = torch.inverse(1 + chosen_samp.t() @ cov_inv @ chosen_samp)
+                cov_inv = cov_inv - cov_inv @ chosen_samp @ middle_part @ chosen_samp.t() @ cov_inv
+
+            raw_bonuses = self._compute_bonuses(centered_mean_hidden_states, cov_inv)
+            normalized_bonuses = self._normalize_bonuses(raw_bonuses)
+
+            prompt_ids = data.batch["prompts"][mask]
+            prompt_length = prompt_ids.shape[-1]
+            valid_response_lengths = data.batch["attention_mask"][mask, prompt_length:].sum(-1)
+
+            raw_bonuses_tensor[mask, valid_response_lengths - 1] = raw_bonuses
+            reward_tensor[mask, valid_response_lengths - 1] = normalized_bonuses
+
+        output = DataProto.from_dict(
+            tensors={"rm_scores": reward_tensor},
+            non_tensors={"raw_bonuses": raw_bonuses_tensor.cpu().numpy()}
+        )
+        return output.to('cpu')
+        
 
 # ================================= Async related workers =================================
 class AsyncActorRolloutRefWorker(ActorRolloutRefWorker):
