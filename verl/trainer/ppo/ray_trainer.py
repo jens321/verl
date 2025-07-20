@@ -607,7 +607,6 @@ class RayPPOTrainer:
                 if not self.async_rollout_mode
                 else self.config.actor_rollout_ref.rollout.agent.num_workers
             )
-            breakpoint()
             test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(test_gen_batch, size_divisor)
             if not self.async_rollout_mode:
                 test_output_gen_batch_padded = self.actor_rollout_wg.generate_sequences(test_gen_batch_padded)
@@ -1069,10 +1068,9 @@ class RayPPOTrainer:
 
             # hard dataset validation
             if self.config.trainer.val_hard_subset:
-                hard_val_metrics = self._validate(self.hard_val_dataloader, self.config.actor_rollout_ref.rollout.hard_val_kwargs)
+                hard_val_metrics = self._validate(self.hard_val_dataloader, self.config.actor_rollout_ref.rollout.hard_val_kwargs, hard_validate=True)
                 assert hard_val_metrics, f"{hard_val_metrics=}"
-                # TODO: merge with full dataset validation
-                breakpoint()
+                val_metrics.update(hard_val_metrics)
 
             pprint(f"Initial validation metrics: {val_metrics}")
             logger.log(data=val_metrics, step=self.global_steps)
