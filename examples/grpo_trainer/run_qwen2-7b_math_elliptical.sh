@@ -7,7 +7,7 @@ math_test_path=$HOME/data/math/test.parquet
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
 
-WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.trainer.main_ppo \
+PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
@@ -16,6 +16,7 @@ WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.trainer.main_ppo \
     data.max_response_length=1024 \
     data.filter_overlong_prompts=True \
     data.truncation='error' \
+    data.task=math \
     actor_rollout_ref.model.path=Qwen/Qwen2.5-7B-Instruct \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
@@ -35,6 +36,15 @@ WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.n=5 \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16 \
     actor_rollout_ref.ref.fsdp_config.param_offload=True \
+    reward_model.enable=True \
+    reward_model.model.path=Qwen/Qwen2.5-7B-Instruct \
+    reward_model.model.use_remove_padding=False \
+    reward_model.model.fsdp_config.param_offload=True \
+    reward_model.micro_batch_size_per_gpu=32 \
+    reward_model.model.input_tokenizer=null \
+    reward_model.elliptical.enable=True \
+    reward_model.reward_manager=elliptical \
+    reward_model.reward_kwargs.beta=1.0 \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
