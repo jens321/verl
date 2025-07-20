@@ -367,6 +367,7 @@ class RayPPOTrainer:
                 self.processor,
                 max_samples=self.config.data.get("val_max_samples", -1),
             )
+        
         self.train_dataset, self.val_dataset = train_dataset, val_dataset
 
         if train_sampler is None:
@@ -399,6 +400,27 @@ class RayPPOTrainer:
             drop_last=False,
             collate_fn=collate_fn,
         )
+
+        if self.config.trainer.val_hard_subset:
+            hard_val_dataset = create_rl_dataset(
+                self.config.data.val_files, self.config.data, self.tokenizer, self.processor, filter_only_hard_prompts=True
+            )
+            self.hard_val_dataset = hard_val_dataset
+
+            hard_val_batch_size = self.config.data.hard_val_batch_size
+            if hard_val_batch_size is None:
+                hard_val_batch_size = len(self.hard_val_dataset)
+
+            self.hard_val_dataloader = StatefulDataLoader(
+                dataset=self.hard_val_dataset,
+                batch_size=hard_val_batch_size,
+                num_workers=num_workers,
+                shuffle=self.config.data.get("validation_shuffle", True),
+                drop_last=False,
+                collate_fn=collate_fn,
+            )
+
+            assert len(self.hard_val_dataloader) >= 1, "Hard validation dataloader is empty!"
 
         assert len(self.train_dataloader) >= 1, "Train dataloader is empty!"
         assert len(self.val_dataloader) >= 1, "Validation dataloader is empty!"
@@ -540,7 +562,7 @@ class RayPPOTrainer:
         sample_uids = []
 
         for test_data in self.val_dataloader:
-            test_batch = DataProto.from_single_dict(test_data)
+            test_batch = DataProto.from_single_dict(test_data)            
 
             if "uid" not in test_batch.non_tensor_batch:
                 test_batch.non_tensor_batch["uid"] = np.array(
@@ -585,6 +607,7 @@ class RayPPOTrainer:
                 if not self.async_rollout_mode
                 else self.config.actor_rollout_ref.rollout.agent.num_workers
             )
+            breakpoint()
             test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(test_gen_batch, size_divisor)
             if not self.async_rollout_mode:
                 test_output_gen_batch_padded = self.actor_rollout_wg.generate_sequences(test_gen_batch_padded)
@@ -707,6 +730,7 @@ class RayPPOTrainer:
                 role=str(Role.RefPolicy),
             )
             self.resource_pool_to_cls[resource_pool][str(Role.RefPolicy)] = ref_policy_cls
+
 
         # create a reward model if reward_fn is None
         if self.use_rm:
@@ -1039,10 +1063,20 @@ class RayPPOTrainer:
         # perform validation before training
         # currently, we only support validation using the reward_function.
         if self.val_reward_fn is not None and self.config.trainer.get("val_before_train", True):
-            val_metrics = self._validate()
+            # full dataset validation
+            val_metrics = self._validate(self.val_dataloader, self.config.actor_rollout_ref.rollout.val_kwargs)
             assert val_metrics, f"{val_metrics=}"
+
+            # hard dataset validation
+            if self.config.trainer.val_hard_subset:
+                hard_val_metrics = self._validate(self.hard_val_dataloader, self.config.actor_rollout_ref.rollout.hard_val_kwargs)
+                assert hard_val_metrics, f"{hard_val_metrics=}"
+                # TODO: merge with full dataset validation
+                breakpoint()
+
             pprint(f"Initial validation metrics: {val_metrics}")
             logger.log(data=val_metrics, step=self.global_steps)
+
             if self.config.trainer.get("val_only", False):
                 return
 
@@ -1151,7 +1185,12 @@ class RayPPOTrainer:
                     with marked_timer("reward", timing_raw, color="yellow"):
                         # compute reward model score
                         if self.use_rm and "rm_scores" not in batch.batch.keys():
-                            reward_tensor = self.rm_wg.compute_rm_score(batch)
+                            if self.config.reward_model.elliptical.enable:
+                                hidden_states = self.rm_wg.compute_hidden_states(batch)
+                                batch = batch.union(hidden_states)
+                                reward_tensor = self.rm_wg.compute_rm_score(batch)
+                            else:
+                                reward_tensor = self.rm_wg.compute_rm_score(batch)
                             batch = batch.union(reward_tensor)
 
                         if self.config.reward_model.launch_reward_fn_async:
@@ -1313,7 +1352,7 @@ class RayPPOTrainer:
                     }
                 )
                 # collect metrics
-                metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
+                metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic, elliptical=self.config.reward_model.elliptical.enable))
                 metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
                 # TODO: implement actual tflpo and theoretical tflpo
                 n_gpus = self.resource_pool_manager.get_n_gpus()
