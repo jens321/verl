@@ -10,6 +10,7 @@
 **/wandb
 scripts/train_grpo_math.slurm
 scripts/train_grpo_math.sh
+slurm_output/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
