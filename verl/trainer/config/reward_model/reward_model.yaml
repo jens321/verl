@@ -15,6 +15,7 @@ elliptical:
   normalization: z_score
   reward_type: leave_one_out # alternative: leverage
   sparse_dim: 512
+  randomize_sparse_matrix: False
 
 reward_kwargs:
   beta: 1.0

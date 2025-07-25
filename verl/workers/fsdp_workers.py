@@ -21,6 +21,7 @@ import os
 import warnings
 from dataclasses import asdict
 from typing import Any
+import time
 
 import psutil
 import torch
@@ -1649,6 +1650,7 @@ class EllipticalRewardModelWorker(RewardModelWorker):
         self.normalization = config.elliptical.normalization
         self.sparse_dim = config.elliptical.sparse_dim
         self.sparse_matrix = None
+        self.randomize_sparse_matrix = config.elliptical.randomize_sparse_matrix
 
     @staticmethod
     def _construct_sparse_matrix(features: torch.Tensor, sparse_dim: int) -> torch.Tensor:
@@ -1936,12 +1938,17 @@ class EllipticalRewardModelWorker(RewardModelWorker):
     def compute_rm_score(self, data: DataProto):
         if self.sparse_matrix is None:
             d = data.batch["mean_hidden_states"].shape[-1]
-            self.sparse_matrix = self._construct_sparse_matrix(torch.zeros(1, d), self.sparse_dim)
+            start = time.time()
+            sparse_matrix = self._construct_sparse_matrix(torch.randn(1, d), self.sparse_dim)
+            end = time.time()
+            print(f"Time taken to construct sparse matrix: {end - start} seconds")
+            if not self.randomize_sparse_matrix:
+                self.sparse_matrix = sparse_matrix
 
         mean_hidden_states = data.batch["mean_hidden_states"].cuda().float()
 
         # sparse project
-        mean_hidden_states = mean_hidden_states @ self.sparse_matrix.cuda()
+        mean_hidden_states = mean_hidden_states @ sparse_matrix.cuda()
 
         # upgrade to float64
         mean_hidden_states = mean_hidden_states.to(torch.float64)
