@@ -41,11 +41,12 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.
  reward_model.elliptical.enable=True \
  reward_model.reward_manager=elliptical \
  reward_model.reward_kwargs.beta=1.0 \
+ reward_model.reward_kwargs.turn_off_elliptical_per_question=True \
  algorithm.use_kl_in_reward=False \
- trainer.val_hard_subset=True \
+ trainer.val_hard_subset=False \
  trainer.critic_warmup=0 \
  trainer.logger='["console"]' \
- trainer.val_before_train=True \
+ trainer.val_before_train=False \
  trainer.n_gpus_per_node=1 \
  trainer.nnodes=1 \
  trainer.save_freq=10 \
