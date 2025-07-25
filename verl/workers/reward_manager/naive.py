@@ -25,7 +25,7 @@ from verl.workers.reward_manager import register
 class NaiveRewardManager:
     """The reward manager."""
 
-    def __init__(self, tokenizer, num_examine, compute_score=None, reward_fn_key="data_source", beta=None) -> None:
+    def __init__(self, tokenizer, num_examine, compute_score=None, reward_fn_key="data_source", beta=None, turn_off_elliptical_per_question=False) -> None:
         """
         Initialize the NaiveRewardManager instance.
 
