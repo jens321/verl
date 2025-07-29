@@ -304,6 +304,9 @@ trainer:
   # Validation frequency (in training iterations)
   test_freq: -1
 
+  # Frequency to validate on a random subset of the training data to get train pass@k metrics
+  pass_at_k_freq: -1
+
   # Number of iterations to warm up the critic before updating policy
   critic_warmup: 0
 
@@ -327,6 +330,9 @@ trainer:
 
   # Device to run training on (e.g., "cuda", "cpu")
   device: cuda
+
+  # Size of the random subset of the training data to get train pass@k metrics
+  train_random_subset_size: 512
 
 # configs related to ray initialization
 ray_init:
