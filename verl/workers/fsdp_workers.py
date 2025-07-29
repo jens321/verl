@@ -1944,6 +1944,8 @@ class EllipticalRewardModelWorker(RewardModelWorker):
             print(f"Time taken to construct sparse matrix: {end - start} seconds")
             if not self.randomize_sparse_matrix:
                 self.sparse_matrix = sparse_matrix
+        else:
+            sparse_matrix = self.sparse_matrix
 
         mean_hidden_states = data.batch["mean_hidden_states"].cuda().float()
 
