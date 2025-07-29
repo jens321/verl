@@ -422,6 +422,22 @@ class RayPPOTrainer:
 
             assert len(self.hard_val_dataloader) >= 1, "Hard validation dataloader is empty!"
 
+        if self.config.trainer.pass_at_k_freq > 0:
+            random_subset_train_dataset = create_rl_dataset(
+                self.config.data.train_files, self.config.data, self.tokenizer, self.processor, random_subset_size=self.config.trainer.train_random_subset_size
+            )
+            self.random_subset_train_dataset = random_subset_train_dataset
+
+            self.random_subset_train_dataloader = StatefulDataLoader(
+                dataset=self.random_subset_train_dataset,
+                batch_size=len(self.random_subset_train_dataset),
+                num_workers=num_workers,
+                drop_last=False,
+                collate_fn=collate_fn,
+            )
+
+            assert len(self.random_subset_train_dataloader) >= 1, "Random subset train dataloader is empty!"
+
         assert len(self.train_dataloader) >= 1, "Train dataloader is empty!"
         assert len(self.val_dataloader) >= 1, "Validation dataloader is empty!"
 
@@ -1054,7 +1070,10 @@ class RayPPOTrainer:
             config=OmegaConf.to_container(self.config, resolve=True),
         )
 
+        # global vars to track during training
         self.global_steps = 0
+        self.highest_train_pass_at_k = 0
+        self.pass_at_k_patience = 0
 
         # load checkpoint before doing anything
         self._load_checkpoint()
