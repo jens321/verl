@@ -25,7 +25,7 @@ from verl.workers.reward_manager import register, NaiveRewardManager
 class EllipticalRewardManager(NaiveRewardManager):
     """The reward manager."""
 
-    def __init__(self, tokenizer, num_examine, compute_score=None, reward_fn_key="data_source", beta: int = 1.0, turn_off_elliptical_per_question: bool = False) -> None:
+    def __init__(self, tokenizer, num_examine, compute_score=None, reward_fn_key="data_source", beta: int = 1.0, turn_off_elliptical_if_any_correct: bool = False, turn_off_elliptical_if_all_correct: bool = False) -> None:
         """
         Initialize the NaiveRewardManager instance.
 
@@ -38,7 +38,10 @@ class EllipticalRewardManager(NaiveRewardManager):
         """
         super().__init__(tokenizer, num_examine, compute_score, reward_fn_key)
         self.beta = beta
-        self.turn_off_elliptical_per_question = turn_off_elliptical_per_question
+        self.turn_off_elliptical_if_any_correct = turn_off_elliptical_if_any_correct
+        self.turn_off_elliptical_if_all_correct = turn_off_elliptical_if_all_correct
+
+        assert not (self.turn_off_elliptical_if_any_correct and self.turn_off_elliptical_if_all_correct), "turn_off_elliptical_if_any_correct and turn_off_elliptical_if_all_correct cannot be both True"
 
     def __call__(self, data: DataProto, return_dict=False):
         if "rm_scores" not in data.batch:
@@ -54,8 +57,7 @@ class EllipticalRewardManager(NaiveRewardManager):
         extrinsic_reward_tensor = extrinsic_reward_result["reward_tensor"]
         extrinsic_reward_extra_info = extrinsic_reward_result["reward_extra_info"]
 
-        if self.turn_off_elliptical_per_question:
-            self._turn_off_elliptical_per_question(data, extrinsic_reward_tensor, intrinsic_reward_tensor)
+        self._maybe_turn_off_elliptical(data, extrinsic_reward_tensor, intrinsic_reward_tensor)
 
         reward_tensor = extrinsic_reward_tensor + self.beta * intrinsic_reward_tensor
 
@@ -73,7 +75,7 @@ class EllipticalRewardManager(NaiveRewardManager):
         else:
             return reward_tensor
         
-    def _turn_off_elliptical_per_question(self, data, extrinsic_reward_tensor, intrinsic_reward_tensor):
+    def _maybe_turn_off_elliptical(self, data, extrinsic_reward_tensor, intrinsic_reward_tensor) -> None:
         visited_uids = set()
         for uid in data.non_tensor_batch["uid"]:
             if uid in visited_uids:
@@ -81,5 +83,7 @@ class EllipticalRewardManager(NaiveRewardManager):
             
             visited_uids.add(uid)
             mask = torch.from_numpy(data.non_tensor_batch["uid"] == uid)
-            if torch.any(extrinsic_reward_tensor[mask] == 1.0):
+            if self.turn_off_elliptical_if_any_correct and torch.any(extrinsic_reward_tensor[mask] == 1.0):
+                intrinsic_reward_tensor[mask] = 0.0
+            elif self.turn_off_elliptical_if_all_correct and extrinsic_reward_tensor[mask].sum() == mask.sum():
                 intrinsic_reward_tensor[mask] = 0.0

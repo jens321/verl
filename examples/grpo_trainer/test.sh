@@ -41,7 +41,8 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.
  reward_model.elliptical.enable=True \
  reward_model.reward_manager=elliptical \
  reward_model.reward_kwargs.beta=1.0 \
- reward_model.reward_kwargs.turn_off_elliptical_per_question=True \
+ reward_model.reward_kwargs.turn_off_elliptical_if_all_correct=True \
+ reward_model.reward_kwargs.turn_off_elliptical_if_any_correct=False \
  algorithm.use_kl_in_reward=False \
  trainer.val_hard_subset=False \
  trainer.critic_warmup=0 \
