@@ -632,6 +632,22 @@ class RayPPOTrainer:
 
             assert len(self.hard_val_dataloader) >= 1, "Hard validation dataloader is empty!"
 
+        if self.config.trainer.pass_at_k_freq > 0:
+            random_subset_train_dataset = create_rl_dataset(
+                self.config.data.train_files, self.config.data, self.tokenizer, self.processor, random_subset_size=self.config.trainer.train_random_subset_size
+            )
+            self.random_subset_train_dataset = random_subset_train_dataset
+
+            self.random_subset_train_dataloader = StatefulDataLoader(
+                dataset=self.random_subset_train_dataset,
+                batch_size=len(self.random_subset_train_dataset),
+                num_workers=num_workers,
+                drop_last=False,
+                collate_fn=collate_fn,
+            )
+
+            assert len(self.random_subset_train_dataloader) >= 1, "Random subset train dataloader is empty!"
+
         assert len(self.train_dataloader) >= 1, "Train dataloader is empty!"
         assert len(self.val_dataloader) >= 1, "Validation dataloader is empty!"
 
@@ -709,7 +725,7 @@ class RayPPOTrainer:
         # Log to each configured logger
         self.validation_generations_logger.log(self.config.trainer.logger, samples, self.global_steps)
 
-    def _validate(self, val_dataloader, val_kwargs, hard_validate=False):
+    def _validate(self, val_dataloader, val_kwargs, hard_validate:bool=False, train_validate:bool=False):
         data_source_lst = []
         reward_extra_infos_dict: dict[str, list] = defaultdict(list)
 
@@ -768,8 +784,9 @@ class RayPPOTrainer:
                 "pad_token_id": self.tokenizer.pad_token_id,
                 "recompute_log_prob": False,
                 "do_sample": val_kwargs.do_sample,
-                "validate": not hard_validate,
+                "validate": not hard_validate and not train_validate,
                 "hard_validate": hard_validate,
+                "train_validate": train_validate,
             }
             print(f"test_gen_batch meta info: {test_gen_batch.meta_info}")
 
@@ -835,11 +852,17 @@ class RayPPOTrainer:
 
         data_sources = np.concatenate(data_source_lst, axis=0)
 
+        metric_postfix = ""
+        if hard_validate:
+            metric_postfix = f"-hard-subset-temp-{val_kwargs.temperature}"
+        elif train_validate:
+            metric_postfix = f"-train-subset-temp-{val_kwargs.temperature}"
+
         data_src2var2metric2val = process_validation_metrics(
             data_sources, 
             sample_inputs, 
             reward_extra_infos_dict,
-            metric_postfix=f"-hard-subset-temp-{val_kwargs.temperature}" if hard_validate else ""
+            metric_postfix=metric_postfix
         )
 
         # only compute subset metrics for full dataset validation
@@ -1138,7 +1161,10 @@ class RayPPOTrainer:
             config=OmegaConf.to_container(self.config, resolve=True),
         )
 
+        # global vars to track during training
         self.global_steps = 0
+        self.highest_train_pass_at_k = 0
+        self.pass_at_k_patience = 0
 
         # load checkpoint before doing anything
         self._load_checkpoint()
@@ -1413,6 +1439,28 @@ class RayPPOTrainer:
                             if is_last_step:
                                 last_val_metrics = val_metrics
                         metrics.update(val_metrics)
+
+                    # potentially validate on the random subset of the training data
+                    if (
+                        self.val_reward_fun is not None
+                        and self.config.trainer.pass_at_k_freq > 0
+                        and (is_last_step or self.global_steps % self.config.trainer.pass_at_k_freq == 0)
+                    ):
+                        with marked_timer("train_pass_at_k", timing_raw, color="green"):
+                            pass_at_k_metrics: dict = self._validate(self.random_subset_train_dataloader, self.config.actor_rollout_ref.rollout.train_val_kwargs, train_validate=True)
+                        metrics.update(pass_at_k_metrics)
+
+                        if self.config.reward_model.elliptical.turn_off_at_highest_pass_at_k:
+                            if pass_at_k_metrics["pass_at_k"] > self.highest_train_pass_at_k:
+                                self.highest_train_pass_at_k = pass_at_k_metrics["pass_at_k"]
+                                self.pass_at_k_patience = 0
+                            else:
+                                self.pass_at_k_patience += 1
+
+                            # turn off elliptical bonuses by setting beta to 0.0
+                            # NOTE: this will allow us to still track the bonuses in the logs, but not train with them
+                            if self.pass_at_k_patience >= self.config.reward_model.elliptical.pass_at_k_patience:
+                                self.reward_fn.beta = 0.0
 
                     # Check if the ESI (Elastic Server Instance)/training plan is close to expiration.
                     esi_close_to_expiration = should_save_ckpt_esi(
