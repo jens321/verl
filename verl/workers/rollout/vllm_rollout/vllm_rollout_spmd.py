@@ -288,6 +288,7 @@ class vLLMRollout(BaseRollout):
         do_sample = prompts.meta_info.get("do_sample", True)
         is_validate = prompts.meta_info.get("validate", False)
         is_hard_validate = prompts.meta_info.get("hard_validate", False)
+        is_train_validate = prompts.meta_info.get("train_validate", False)
         if not do_sample:
             kwargs = {
                 "best_of": 1,
@@ -311,6 +312,13 @@ class vLLMRollout(BaseRollout):
                 "top_p": self.config.hard_val_kwargs.top_p,
                 "temperature": self.config.hard_val_kwargs.temperature,
                 "n": 1, # if hard_validate, already repeat in ray_trainer
+            }
+        elif is_train_validate:
+            kwargs = {
+                "top_k": self.config.train_val_kwargs.top_k,
+                "top_p": self.config.train_val_kwargs.top_p,
+                "temperature": self.config.train_val_kwargs.temperature,
+                "n": 1, # if train_validate, already repeat in ray_trainer
             }
 
         lora_requests = None
