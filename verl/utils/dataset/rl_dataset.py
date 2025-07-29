@@ -89,6 +89,7 @@ class RLHFDataset(Dataset):
         config: DictConfig,
         processor: Optional[ProcessorMixin] = None,
         filter_only_hard_prompts: bool = False,
+        random_subset_size: Optional[int] = None,
     ):
         if not isinstance(data_files, list | ListConfig):
             data_files = [data_files]
@@ -99,6 +100,7 @@ class RLHFDataset(Dataset):
         self.processor = processor
         self.config = config
         self.filter_only_hard_prompts = filter_only_hard_prompts
+        self.random_subset_size = random_subset_size
 
         self.cache_dir = os.path.expanduser(config.get("cache_dir", "~/.cache/verl/rlhf"))
         self.prompt_key = config.get("prompt_key", "prompt")
@@ -141,6 +143,13 @@ class RLHFDataset(Dataset):
 
         self.dataframe = self.maybe_filter_only_hard_prompts(self.dataframe)
         self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
+        self.dataframe = self.maybe_sample_random_subset(self.dataframe)
+
+    def maybe_sample_random_subset(self, dataframe: datasets.Dataset = None):
+        if self.random_subset_size is not None:
+            return dataframe.select(np.random.choice(len(dataframe), size=self.random_subset_size, replace=False))
+
+        return dataframe
 
     def maybe_filter_only_hard_prompts(self, dataframe: datasets.Dataset = None):
         if self.filter_only_hard_prompts:
