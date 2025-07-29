@@ -171,6 +171,13 @@ class RLHFDataset(Dataset):
             print(f"selected {self.max_samples} random samples out of {total}")
 
         self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
+        self.dataframe = self.maybe_sample_random_subset(self.dataframe)
+
+    def maybe_sample_random_subset(self, dataframe: datasets.Dataset = None):
+        if self.random_subset_size is not None:
+            return dataframe.select(np.random.choice(len(dataframe), size=self.random_subset_size, replace=False))
+
+        return dataframe
 
     def maybe_filter_only_hard_prompts(self, dataframe: datasets.Dataset = None):
         if self.filter_only_hard_prompts:
