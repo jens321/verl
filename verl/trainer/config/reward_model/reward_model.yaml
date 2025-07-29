@@ -16,6 +16,8 @@ elliptical:
   reward_type: leave_one_out # alternative: leverage
   sparse_dim: 512
   randomize_sparse_matrix: False
+  turn_off_at_highest_pass_at_k: False
+  pass_at_k_patience: 3
 
 reward_kwargs:
   beta: 1.0
