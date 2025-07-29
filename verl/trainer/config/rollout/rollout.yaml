@@ -132,6 +132,25 @@ hard_val_kwargs:
   # Whether to sample during training rollout. False uses greedy sampling.
   do_sample: True
 
+# Sampling parameters used during hard validation.
+train_val_kwargs:
+
+  # sampling parameters for validation
+  # Top-k sampling parameter. -1 for vLLM rollout, 0 for HF rollout.
+  top_k: -1
+
+  # Top-p sampling parameter. Default 1.0.
+  top_p: 1.0
+
+  # Sampling temperature for rollout.
+  temperature: 1.0
+
+  # whether to repeat n times for validation
+  n: 16
+
+  # Whether to sample during training rollout. False uses greedy sampling.
+  do_sample: True
+
 # Multi-turn interaction config for tools or chat.
 multi_turn:
 
