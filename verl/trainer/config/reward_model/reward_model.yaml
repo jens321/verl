@@ -19,7 +19,8 @@ elliptical:
 
 reward_kwargs:
   beta: 1.0
-  turn_off_elliptical_per_question: False
+  turn_off_elliptical_if_any_correct: False
+  turn_off_elliptical_if_all_correct: False
 
 # model config for reward scoring
 model:
