@@ -2223,6 +2223,8 @@ class EllipticalRewardModelWorker(RewardModelWorker):
             sparse_matrix = self._construct_sparse_matrix(torch.randn(1, d), self.sparse_dim)
             if not self.randomize_sparse_matrix:
                 self.sparse_matrix = sparse_matrix
+        else:
+            sparse_matrix = self.sparse_matrix
 
         mean_hidden_states = data.batch["mean_hidden_states"].cuda().float()
 
