@@ -866,7 +866,7 @@ class RayPPOTrainer:
         )
 
         # only compute subset metrics for full dataset validation
-        if not hard_validate:
+        if not hard_validate and not train_validate:
             problem_idxs = np.concatenate(problem_idxs)
             is_hard = np.isin(problem_idxs, hard_indices)
             subset_indices = is_hard.nonzero()[0].tolist()
@@ -1442,7 +1442,7 @@ class RayPPOTrainer:
 
                     # potentially validate on the random subset of the training data
                     if (
-                        self.val_reward_fun is not None
+                        self.val_reward_fn is not None
                         and self.config.trainer.pass_at_k_freq > 0
                         and (is_last_step or self.global_steps % self.config.trainer.pass_at_k_freq == 0)
                     ):
@@ -1451,16 +1451,20 @@ class RayPPOTrainer:
                         metrics.update(pass_at_k_metrics)
 
                         if self.config.reward_model.elliptical.turn_off_at_highest_pass_at_k:
-                            if pass_at_k_metrics["pass_at_k"] > self.highest_train_pass_at_k:
-                                self.highest_train_pass_at_k = pass_at_k_metrics["pass_at_k"]
-                                self.pass_at_k_patience = 0
-                            else:
-                                self.pass_at_k_patience += 1
+                            for k in pass_at_k_metrics.keys():
+                                if k.endswith(f"pass@{self.config.actor_rollout_ref.rollout.n}/mean"):
+                                    if pass_at_k_metrics[k] > self.highest_train_pass_at_k:
+                                        self.highest_train_pass_at_k = pass_at_k_metrics[k]
+                                        self.pass_at_k_patience = 0
+                                    else:
+                                        self.pass_at_k_patience += 1
 
-                            # turn off elliptical bonuses by setting beta to 0.0
-                            # NOTE: this will allow us to still track the bonuses in the logs, but not train with them
-                            if self.pass_at_k_patience >= self.config.reward_model.elliptical.pass_at_k_patience:
-                                self.reward_fn.beta = 0.0
+                                    # turn off elliptical bonuses by setting beta to 0.0
+                                    # NOTE: this will allow us to still track the bonuses in the logs, but not train with them
+                                    if self.pass_at_k_patience >= self.config.reward_model.elliptical.pass_at_k_patience:
+                                        self.reward_fn.beta = 0.0
+
+                                    break
 
                     # Check if the ESI (Elastic Server Instance)/training plan is close to expiration.
                     esi_close_to_expiration = should_save_ckpt_esi(
