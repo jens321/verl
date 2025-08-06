@@ -29,7 +29,8 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.
  actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
  actor_rollout_ref.rollout.name=vllm \
  actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
- actor_rollout_ref.rollout.n=10 \
+ actor_rollout_ref.rollout.n=4 \
+ actor_rollout_ref.rollout.train_val_kwargs.n=16 \
  actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=4 \
  actor_rollout_ref.ref.fsdp_config.param_offload=True \
  reward_model.enable=True \
@@ -39,11 +40,14 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.
  reward_model.micro_batch_size_per_gpu=32 \
  reward_model.model.input_tokenizer=null \
  reward_model.elliptical.enable=True \
+ reward_model.elliptical.turn_off_at_highest_pass_at_k=False \
  reward_model.reward_manager=elliptical \
  reward_model.reward_kwargs.beta=1.0 \
- reward_model.reward_kwargs.turn_off_elliptical_if_all_correct=True \
+ reward_model.reward_kwargs.turn_off_elliptical_if_all_correct=False \
  reward_model.reward_kwargs.turn_off_elliptical_if_any_correct=False \
  algorithm.use_kl_in_reward=False \
+ trainer.pass_at_k_freq=-1 \
+ trainer.train_random_subset_size=4 \
  trainer.val_hard_subset=False \
  trainer.critic_warmup=0 \
  trainer.logger='["console"]' \
@@ -51,6 +55,6 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.
  trainer.n_gpus_per_node=1 \
  trainer.nnodes=1 \
  trainer.save_freq=10 \
- trainer.test_freq=10 \
+ trainer.test_freq=-1 \
  trainer.total_epochs=15 \
  trainer.seed=41 2>&1 | tee verl_demo.log
