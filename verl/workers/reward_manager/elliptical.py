@@ -25,7 +25,7 @@ from verl.workers.reward_manager import register, NaiveRewardManager
 class EllipticalRewardManager(NaiveRewardManager):
     """The reward manager."""
 
-    def __init__(self, tokenizer, num_examine, compute_score=None, reward_fn_key="data_source", beta: int = 1.0, turn_off_elliptical_if_any_correct: bool = False, turn_off_elliptical_if_all_correct: bool = False) -> None:
+    def __init__(self, tokenizer, num_examine, compute_score=None, reward_fn_key="data_source", beta: int = 1.0, turn_off_elliptical_if_any_correct: bool = False, turn_off_elliptical_if_all_correct: bool = False, alpha: float = 0.0) -> None:
         """
         Initialize the NaiveRewardManager instance.
 
@@ -40,6 +40,7 @@ class EllipticalRewardManager(NaiveRewardManager):
         self.beta = beta
         self.turn_off_elliptical_if_any_correct = turn_off_elliptical_if_any_correct
         self.turn_off_elliptical_if_all_correct = turn_off_elliptical_if_all_correct
+        self.alpha = alpha
 
         assert not (self.turn_off_elliptical_if_any_correct and self.turn_off_elliptical_if_all_correct), "turn_off_elliptical_if_any_correct and turn_off_elliptical_if_all_correct cannot be both True"
 
@@ -59,11 +60,12 @@ class EllipticalRewardManager(NaiveRewardManager):
 
         self._maybe_turn_off_elliptical(data, extrinsic_reward_tensor, intrinsic_reward_tensor)
 
-        reward_tensor = extrinsic_reward_tensor + self.beta * intrinsic_reward_tensor
+        reward_tensor = self.alpha * extrinsic_reward_tensor + self.beta * intrinsic_reward_tensor
 
         reward_extra_info["intrinsic_reward"] = intrinsic_reward_tensor.numpy()
         reward_extra_info["beta_scaled_intrinsic_reward"] = self.beta * intrinsic_reward_tensor.numpy()
         reward_extra_info["extrinsic_reward"] = extrinsic_reward_tensor.numpy()
+        reward_extra_info["alpha_scaled_extrinsic_reward"] = self.alpha * extrinsic_reward_tensor.numpy()
         reward_extra_info["total_reward"] = reward_tensor.numpy()
         reward_extra_info.update(extrinsic_reward_extra_info)
 

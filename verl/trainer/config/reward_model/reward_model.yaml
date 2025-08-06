@@ -26,6 +26,7 @@ elliptical:
   pass_at_k_patience: 3
 
 reward_kwargs:
+  alpha: 1.0
   beta: 1.0
   turn_off_elliptical_if_any_correct: False
   turn_off_elliptical_if_all_correct: False
