@@ -62,11 +62,14 @@ class EllipticalRewardManager(NaiveRewardManager):
 
         reward_tensor = self.alpha * extrinsic_reward_tensor + self.beta * intrinsic_reward_tensor
 
+        # Intrinsic reward extra info
         reward_extra_info["intrinsic_reward"] = intrinsic_reward_tensor.numpy()
         reward_extra_info["beta_scaled_intrinsic_reward"] = self.beta * intrinsic_reward_tensor.numpy()
         reward_extra_info["extrinsic_reward"] = extrinsic_reward_tensor.numpy()
         reward_extra_info["alpha_scaled_extrinsic_reward"] = self.alpha * extrinsic_reward_tensor.numpy()
         reward_extra_info["total_reward"] = reward_tensor.numpy()
+
+        # Update with extrinsic reward extra info
         reward_extra_info.update(extrinsic_reward_extra_info)
 
         if return_dict:
@@ -84,9 +87,9 @@ class EllipticalRewardManager(NaiveRewardManager):
             (2) all of the rollouts have the correct answer
 
         Args:
-            data: The data proto containing the batch data.
-            extrinsic_reward_tensor: The extrinsic reward tensor.
-            intrinsic_reward_tensor: The intrinsic reward tensor.
+            data (DataProto): The data proto containing the batch data.
+            extrinsic_reward_tensor (torch.Tensor): The extrinsic reward tensor.
+            intrinsic_reward_tensor (torch.Tensor): The intrinsic reward tensor.
 
         Returns:
             None
