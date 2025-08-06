@@ -77,7 +77,20 @@ class EllipticalRewardManager(NaiveRewardManager):
         else:
             return reward_tensor
         
-    def _maybe_turn_off_elliptical(self, data, extrinsic_reward_tensor, intrinsic_reward_tensor) -> None:
+    def _maybe_turn_off_elliptical(self, data: DataProto, extrinsic_reward_tensor: torch.Tensor, intrinsic_reward_tensor: torch.Tensor) -> None:
+        """
+        Potentially turn off the elliptical reward for samples that have one of the following properties:
+            (1) any of the rollouts have the correct answer
+            (2) all of the rollouts have the correct answer
+
+        Args:
+            data: The data proto containing the batch data.
+            extrinsic_reward_tensor: The extrinsic reward tensor.
+            intrinsic_reward_tensor: The intrinsic reward tensor.
+
+        Returns:
+            None
+        """
         visited_uids = set()
         for uid in data.non_tensor_batch["uid"]:
             if uid in visited_uids:
@@ -85,7 +98,11 @@ class EllipticalRewardManager(NaiveRewardManager):
             
             visited_uids.add(uid)
             mask = torch.from_numpy(data.non_tensor_batch["uid"] == uid)
+
+            # Potentially turn off elliptical if **any** rollout has the correct answer
             if self.turn_off_elliptical_if_any_correct and torch.any(extrinsic_reward_tensor[mask] == 1.0):
                 intrinsic_reward_tensor[mask] = 0.0
+
+            # Potentially turn off elliptical if **all** rollouts have the correct answer
             elif self.turn_off_elliptical_if_all_correct and extrinsic_reward_tensor[mask].sum() == mask.sum():
                 intrinsic_reward_tensor[mask] = 0.0
