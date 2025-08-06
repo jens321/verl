@@ -18,7 +18,7 @@ strategy: ???
 elliptical:
   enable: False
   lamb: 0.01
-  normalization: z_score
+  normalization: z_score # none, rnd, z_score
   reward_type: leave_one_out # alternative: leverage
   sparse_dim: 512
   randomize_sparse_matrix: False

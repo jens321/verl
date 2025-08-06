@@ -2199,7 +2199,9 @@ class EllipticalRewardModelWorker(RewardModelWorker):
         return bonuses
 
     def _normalize_bonuses(self, bonuses):
-        if self.normalization == 'rnd':
+        if self.normalization == 'none':
+            pass
+        elif self.normalization == 'rnd':
             std = torch.std(bonuses)
             if std > 0:
                 bonuses = bonuses / std

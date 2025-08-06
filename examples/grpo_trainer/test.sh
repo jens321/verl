@@ -29,7 +29,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
  actor_rollout_ref.rollout.name=vllm \
  actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
- actor_rollout_ref.rollout.n=4 \
+ actor_rollout_ref.rollout.n=8 \
  actor_rollout_ref.rollout.train_val_kwargs.n=16 \
  actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=4 \
  actor_rollout_ref.ref.fsdp_config.param_offload=True \
@@ -39,8 +39,11 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  reward_model.model.fsdp_config.param_offload=True \
  reward_model.micro_batch_size_per_gpu=32 \
  reward_model.model.input_tokenizer=null \
+ reward_model.elliptical.sparse_dim=8 \
  reward_model.elliptical.enable=True \
+ reward_model.elliptical.reward_type=leave_one_out \
  reward_model.elliptical.turn_off_at_highest_pass_at_k=False \
+ reward_model.elliptical.normalization=none \
  reward_model.reward_manager=elliptical \
  reward_model.reward_kwargs.beta=1.0 \
  reward_model.reward_kwargs.turn_off_elliptical_if_none_correct=False \
