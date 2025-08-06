@@ -76,6 +76,48 @@ def _compute_response_info(batch: DataProto) -> dict[str, Any]:
         response_length=response_length,
     )
 
+def _compute_three_case_stats(data: DataProto, extrinsic_reward_tensor: torch.Tensor) -> dict:
+    """
+    Compute the fraction of samples that have no rollouts correct, some rollouts correct, and all rollouts correct.
+
+    Args:
+        data (DataProto): The data proto containing the batch data.
+        extrinsic_reward_tensor (torch.Tensor): The extrinsic reward tensor.
+
+    Returns:
+        dict[str, float]: A dictionary containing the fraction of samples that have no rollouts correct, 
+        some rollouts correct, and all rollouts correct.
+    """
+    no_rollouts_correct = 0
+    some_rollouts_correct = 0
+    all_rollouts_correct = 0
+
+    visited_uids = set()
+    for uid in data.non_tensor_batch["uid"]:
+        if uid in visited_uids:
+            continue
+        
+        visited_uids.add(uid)
+        mask = torch.from_numpy(data.non_tensor_batch["uid"] == uid)
+
+        # Split into three cases
+        if extrinsic_reward_tensor[mask].sum() == 0:
+            no_rollouts_correct += 1
+        elif extrinsic_reward_tensor[mask].sum() == mask.sum():
+            all_rollouts_correct += 1
+        elif extrinsic_reward_tensor[mask].sum() > 0 and extrinsic_reward_tensor[mask].sum() < mask.sum():
+            some_rollouts_correct += 1
+        else:
+            raise ValueError(f"Invalid extrinsic reward tensor: {extrinsic_reward_tensor[mask].sum()}")
+        
+    # Sanity checks
+    assert len(visited_uids) == no_rollouts_correct + some_rollouts_correct + all_rollouts_correct
+    
+    return {
+        "no_rollouts_correct_frac": no_rollouts_correct / len(visited_uids),
+        "some_rollouts_correct_frac": some_rollouts_correct / len(visited_uids),
+        "all_rollouts_correct_frac": all_rollouts_correct / len(visited_uids),
+    }
 
 def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: bool = False) -> dict[str, Any]:
     """
@@ -110,6 +152,8 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
         sequence_extrinsic_reward = batch.non_tensor_batch["extrinsic_reward"].sum(-1)
         sequence_total_reward = batch.non_tensor_batch["total_reward"].sum(-1)
         sequence_raw_bonuses = batch.non_tensor_batch["raw_bonuses"].sum(-1)
+
+        three_case_stats = _compute_three_case_stats(batch, batch.non_tensor_batch["extrinsic_reward"])
 
     advantages = batch.batch["advantages"]
     returns = batch.batch["returns"]
@@ -214,6 +258,10 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
                 "critic/extrinsic_reward/max": np.max(sequence_extrinsic_reward).item(),
                 "critic/extrinsic_reward/min": np.min(sequence_extrinsic_reward).item(),
                 "critic/extrinsic_reward/std": np.std(sequence_extrinsic_reward).item(),
+                # three_case_stats
+                "critic/extrinsic_reward/no_rollouts_correct_frac": three_case_stats["no_rollouts_correct_frac"],
+                "critic/extrinsic_reward/some_rollouts_correct_frac": three_case_stats["some_rollouts_correct_frac"],
+                "critic/extrinsic_reward/all_rollouts_correct_frac": three_case_stats["all_rollouts_correct_frac"],
                 # total_reward
                 "critic/total_reward/mean": np.mean(sequence_total_reward).item(),
                 "critic/total_reward/max": np.max(sequence_total_reward).item(),
