@@ -5,13 +5,15 @@ BETA=0.01
 ROLLOUTS=8
 REWARD_TYPE=leave_one_out
 RANDOMIZE_SPARSE_MATRIX=True
-TURN_OFF_ELLIPTICAL_IF_ANY_CORRECT=False
+TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT=False
+TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT=False
 TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT=False
 TURN_OFF_AT_HIGHEST_PASS_AT_K=False
 TRAIN_RANDOM_SUBSET_SIZE=512
 TRAIN_VAL_N=$((2 * ${ROLLOUTS})) # always double the rollout size since we're estimating pass@k where k is the rollout size
 ALPHA=1.0
 TEST_FREQ=5
+SAVE_FREQ=5
 
 if [ ${ALGORITHM} == "dr_grpo" ]; then
     LOSS_AGG_MODE="seq-mean-token-sum-norm"
@@ -29,7 +31,7 @@ else
     PASS_AT_K_FREQ=-1
 fi
 
-for SEED in 41 42 43; do
+for SEED in 42; do
     for REWARD_MODEL_ENABLE in True; do
         ELLIPTICAL_ENABLE=${REWARD_MODEL_ENABLE}
 
@@ -51,7 +53,8 @@ for SEED in 41 42 43; do
         echo "ROLLOUTS: ${ROLLOUTS}"
         echo "REWARD_TYPE: ${REWARD_TYPE}"
         echo "RANDOMIZE_SPARSE_MATRIX: ${RANDOMIZE_SPARSE_MATRIX}"
-        echo "TURN_OFF_ELLIPTICAL_IF_ANY_CORRECT: ${TURN_OFF_ELLIPTICAL_IF_ANY_CORRECT}"
+        echo "TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT: ${TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT}"
+        echo "TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT: ${TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT}"
         echo "TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT: ${TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT}"
         echo "LOSS_AGG_MODE: ${LOSS_AGG_MODE}"
         echo "USE_KL_LOSS: ${USE_KL_LOSS}"
@@ -62,6 +65,7 @@ for SEED in 41 42 43; do
         echo "TRAIN_VAL_N: ${TRAIN_VAL_N}"
         echo "ALPHA: ${ALPHA}"
         echo "TEST_FREQ: ${TEST_FREQ}"
+        echo "SAVE_FREQ: ${SAVE_FREQ}"
         sbatch --job-name=train_${ALGORITHM}_MATH_elliptical_${REWARD_MODEL_ENABLE}_beta_${BETA}_sparse_${SPARSE_DIM} scripts/train_grpo_math.slurm \
             ${MODEL_PATH} \
             ${REWARD_MODEL_ENABLE} \
@@ -73,7 +77,8 @@ for SEED in 41 42 43; do
             ${ROLLOUTS} \
             ${REWARD_TYPE} \
             ${RANDOMIZE_SPARSE_MATRIX} \
-            ${TURN_OFF_ELLIPTICAL_IF_ANY_CORRECT} \
+            ${TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT} \
+            ${TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT} \
             ${TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT} \
             ${LOSS_AGG_MODE} \
             ${USE_KL_LOSS} \
@@ -84,7 +89,8 @@ for SEED in 41 42 43; do
             ${TRAIN_RANDOM_SUBSET_SIZE} \
             ${TRAIN_VAL_N} \
             ${ALPHA} \
-            ${TEST_FREQ}
+            ${TEST_FREQ} \
+            ${SAVE_FREQ}
         echo "--------------------------------"
     done
 done
