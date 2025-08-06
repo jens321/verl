@@ -25,7 +25,7 @@ from verl.workers.reward_manager import register, NaiveRewardManager
 class EllipticalRewardManager(NaiveRewardManager):
     """The reward manager."""
 
-    def __init__(self, tokenizer, num_examine, compute_score=None, reward_fn_key="data_source", beta: int = 1.0, turn_off_elliptical_if_any_correct: bool = False, turn_off_elliptical_if_all_correct: bool = False, alpha: float = 0.0) -> None:
+    def __init__(self, tokenizer, num_examine, compute_score=None, reward_fn_key="data_source", beta: int = 1.0, turn_off_elliptical_if_none_correct: bool = False, turn_off_elliptical_if_some_correct: bool = False, turn_off_elliptical_if_all_correct: bool = False, alpha: float = 0.0) -> None:
         """
         Initialize the NaiveRewardManager instance.
 
@@ -38,11 +38,10 @@ class EllipticalRewardManager(NaiveRewardManager):
         """
         super().__init__(tokenizer, num_examine, compute_score, reward_fn_key)
         self.beta = beta
-        self.turn_off_elliptical_if_any_correct = turn_off_elliptical_if_any_correct
+        self.turn_off_elliptical_if_none_correct = turn_off_elliptical_if_none_correct
+        self.turn_off_elliptical_if_some_correct = turn_off_elliptical_if_some_correct
         self.turn_off_elliptical_if_all_correct = turn_off_elliptical_if_all_correct
         self.alpha = alpha
-
-        assert not (self.turn_off_elliptical_if_any_correct and self.turn_off_elliptical_if_all_correct), "turn_off_elliptical_if_any_correct and turn_off_elliptical_if_all_correct cannot be both True"
 
     def __call__(self, data: DataProto, return_dict=False):
         if "rm_scores" not in data.batch:
@@ -102,10 +101,14 @@ class EllipticalRewardManager(NaiveRewardManager):
             visited_uids.add(uid)
             mask = torch.from_numpy(data.non_tensor_batch["uid"] == uid)
 
-            # Potentially turn off elliptical if **any** rollout has the correct answer
-            if self.turn_off_elliptical_if_any_correct and torch.any(extrinsic_reward_tensor[mask] == 1.0):
+            # Potentially turn off elliptical if **no** rollout has the correct answer
+            if self.turn_off_elliptical_if_none_correct and extrinsic_reward_tensor[mask].sum() == 0:
+                intrinsic_reward_tensor[mask] = 0.0
+
+            # Potentially turn off elliptical if **some** rollouts have the correct answer
+            if self.turn_off_elliptical_if_some_correct and extrinsic_reward_tensor[mask].sum() > 0 and extrinsic_reward_tensor[mask].sum() < mask.sum():
                 intrinsic_reward_tensor[mask] = 0.0
 
             # Potentially turn off elliptical if **all** rollouts have the correct answer
-            elif self.turn_off_elliptical_if_all_correct and extrinsic_reward_tensor[mask].sum() == mask.sum():
+            if self.turn_off_elliptical_if_all_correct and extrinsic_reward_tensor[mask].sum() == mask.sum():
                 intrinsic_reward_tensor[mask] = 0.0
