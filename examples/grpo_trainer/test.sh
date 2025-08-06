@@ -6,7 +6,7 @@ math_test_path=$HOME/data/gsm8k/test.parquet
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
 
-PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.trainer.main_ppo \
+PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl.trainer.main_ppo \
  algorithm.adv_estimator=grpo \
  data.train_files="$train_files" \
  data.val_files="$test_files" \
@@ -44,7 +44,8 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.
  reward_model.reward_manager=elliptical \
  reward_model.reward_kwargs.beta=1.0 \
  reward_model.reward_kwargs.turn_off_elliptical_if_all_correct=False \
- reward_model.reward_kwargs.turn_off_elliptical_if_any_correct=False \
+ reward_model.reward_kwargs.turn_off_elliptical_if_none_correct=False \
+ reward_model.reward_kwargs.turn_off_elliptical_if_some_correct=False \
  algorithm.use_kl_in_reward=False \
  trainer.pass_at_k_freq=-1 \
  trainer.train_random_subset_size=4 \
@@ -54,7 +55,10 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True python3 -m verl.
  trainer.val_before_train=False \
  trainer.n_gpus_per_node=1 \
  trainer.nnodes=1 \
- trainer.save_freq=10 \
+ trainer.save_freq=-1 \
  trainer.test_freq=-1 \
  trainer.total_epochs=15 \
  trainer.seed=41 2>&1 | tee verl_demo.log
+
+#  trainer.resume_mode=resume_path \
+#  trainer.resume_from_path=checkpoints/verl_examples/gsm8k_test/global_step_1 \
