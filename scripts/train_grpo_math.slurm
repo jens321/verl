@@ -3,9 +3,9 @@
 #SBATCH --output=slurm_output/%x-%j.out
 #SBATCH -N 1 #nodes
 #SBATCH -n 1 #tasks
-#SBATCH --cpus-per-task=96
+#SBATCH --cpus-per-task=90
 #SBATCH --mem=900G
-#SBATCH --time=00-23:59:59    # Run for 23:59:59 hours
+#SBATCH --time=00-6:59:59    # Run for 23:59:59 hours
 #SBATCH --gres=gpu:8
 #SBATCH --partition=pli-c
 #SBATCH --account=pli
@@ -36,6 +36,9 @@ TRAIN_VAL_N=${21}
 ALPHA=${22}
 TEST_FREQ=${23}
 SAVE_FREQ=${24}
+ELLIPTICAL_NORMALIZATION=${25}
+RESUME_MODE=${26}
+RESUME_FROM_PATH=${27}
 
 math_train_path=$HOME/data/math/train.parquet
 math_test_path=$HOME/data/math/test.parquet
@@ -84,6 +87,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     reward_model.elliptical.reward_type=$REWARD_TYPE \
     reward_model.elliptical.randomize_sparse_matrix=$RANDOMIZE_SPARSE_MATRIX \
     reward_model.elliptical.turn_off_at_highest_pass_at_k=$TURN_OFF_AT_HIGHEST_PASS_AT_K \
+    reward_model.elliptical.normalization=$ELLIPTICAL_NORMALIZATION \
     reward_model.reward_manager=$REWARD_MANAGER \
     reward_model.reward_kwargs.beta=$BETA \
     reward_model.reward_kwargs.alpha=$ALPHA \
@@ -106,6 +110,10 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.save_freq=$SAVE_FREQ \
     trainer.test_freq=$TEST_FREQ \
     trainer.total_epochs=100 \
-    trainer.seed=$SEED
+    trainer.seed=$SEED \
+    trainer.resume_mode=$RESUME_MODE \
+    trainer.resume_from_path=$RESUME_FROM_PATH
 
 exit 0
+
+# trainer.experiment_name="${MODEL_PATH}_${ALGORITHM}_elliptical_${ELLIPTICAL_ENABLE}_beta_${BETA}_seed_${SEED}_sparse_${SPARSE_DIM}_reward_type_${REWARD_TYPE}_rollouts_${ROLLOUTS}_randomize_sparse_matrix_${RANDOMIZE_SPARSE_MATRIX}_turn_off_elliptical_if_none_correct_${TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT}_turn_off_elliptical_if_some_correct_${TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT}_turn_off_elliptical_if_all_correct_${TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT}_train_val_n_${TRAIN_VAL_N}_turn_off_at_highest_pass_at_k_${TURN_OFF_AT_HIGHEST_PASS_AT_K}_pass_at_k_freq_${PASS_AT_K_FREQ}_train_random_subset_size_${TRAIN_RANDOM_SUBSET_SIZE}_alpha_${ALPHA}" \

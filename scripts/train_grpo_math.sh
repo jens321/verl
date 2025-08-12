@@ -10,10 +10,13 @@ TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT=False
 TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT=False
 TURN_OFF_AT_HIGHEST_PASS_AT_K=False
 TRAIN_RANDOM_SUBSET_SIZE=512
+ELLIPTICAL_NORMALIZATION=z_score
 TRAIN_VAL_N=$((2 * ${ROLLOUTS})) # always double the rollout size since we're estimating pass@k where k is the rollout size
 ALPHA=1.0
 TEST_FREQ=5
-SAVE_FREQ=5
+SAVE_FREQ=-1
+RESUME_MODE=disable
+RESUME_FROM_PATH=''
 
 if [ ${ALGORITHM} == "dr_grpo" ]; then
     LOSS_AGG_MODE="seq-mean-token-sum-norm"
@@ -21,7 +24,7 @@ if [ ${ALGORITHM} == "dr_grpo" ]; then
     NORM_ADV_BY_STD_IN_GRPO=False
 else
     LOSS_AGG_MODE="token-mean"
-    USE_KL_LOSS=True
+    USE_KL_LOSS=False
     NORM_ADV_BY_STD_IN_GRPO=True
 fi
 
@@ -31,8 +34,8 @@ else
     PASS_AT_K_FREQ=-1
 fi
 
-for SEED in 42; do
-    for REWARD_MODEL_ENABLE in True; do
+for SEED in 41 43; do
+    for REWARD_MODEL_ENABLE in False; do
         ELLIPTICAL_ENABLE=${REWARD_MODEL_ENABLE}
 
         if [ ${REWARD_MODEL_ENABLE} == True ]; then
@@ -66,6 +69,9 @@ for SEED in 42; do
         echo "ALPHA: ${ALPHA}"
         echo "TEST_FREQ: ${TEST_FREQ}"
         echo "SAVE_FREQ: ${SAVE_FREQ}"
+        echo "ELLIPTICAL_NORMALIZATION: ${ELLIPTICAL_NORMALIZATION}"
+        echo "RESUME_MODE: ${RESUME_MODE}"
+        echo "RESUME_FROM_PATH: ${RESUME_FROM_PATH}"
         sbatch --job-name=train_${ALGORITHM}_MATH_elliptical_${REWARD_MODEL_ENABLE}_beta_${BETA}_sparse_${SPARSE_DIM} scripts/train_grpo_math.slurm \
             ${MODEL_PATH} \
             ${REWARD_MODEL_ENABLE} \
@@ -90,7 +96,10 @@ for SEED in 42; do
             ${TRAIN_VAL_N} \
             ${ALPHA} \
             ${TEST_FREQ} \
-            ${SAVE_FREQ}
+            ${SAVE_FREQ} \
+            ${ELLIPTICAL_NORMALIZATION} \
+            ${RESUME_MODE} \
+            "${RESUME_FROM_PATH}"
         echo "--------------------------------"
     done
 done
