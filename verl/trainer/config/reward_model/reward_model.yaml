@@ -24,6 +24,7 @@ elliptical:
   randomize_sparse_matrix: False
   turn_off_at_highest_pass_at_k: False
   pass_at_k_patience: 3
+  persist_covariance: False
 
 reward_kwargs:
   alpha: 1.0
