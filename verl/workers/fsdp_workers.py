@@ -1935,6 +1935,7 @@ class EllipticalRewardModelWorker(RewardModelWorker):
         self.cov_inv_dict = {}
         self.mean_hidden_states_mu_dict = {}
         self.hidden_mean_counter_dict = {}
+        self.index_to_question_dict = {}
 
     @staticmethod
     def _construct_sparse_matrix(features: torch.Tensor, sparse_dim: int) -> torch.Tensor:
@@ -2269,6 +2270,12 @@ class EllipticalRewardModelWorker(RewardModelWorker):
             filtered_mean_hidden_states = mean_hidden_states[mask]
 
             prompt_index = data_item.non_tensor_batch['extra_info']['index']
+            question = data_item.non_tensor_batch['extra_info']['question']
+
+            if prompt_index not in self.index_to_question_dict:
+                self.index_to_question_dict[prompt_index] = question
+            else:
+                assert self.index_to_question_dict[prompt_index] == question, "found mismatch between question and index!"
 
             if self.persist_covariance:
                 # first update the mean hidden states mu
