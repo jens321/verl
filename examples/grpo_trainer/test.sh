@@ -41,9 +41,10 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  reward_model.model.input_tokenizer=null \
  reward_model.elliptical.sparse_dim=8 \
  reward_model.elliptical.enable=True \
- reward_model.elliptical.reward_type=leave_one_out \
+ reward_model.elliptical.reward_type=leverage \
  reward_model.elliptical.turn_off_at_highest_pass_at_k=False \
  reward_model.elliptical.normalization=none \
+ reward_model.elliptical.persist_covariance=False \
  reward_model.reward_manager=elliptical \
  reward_model.reward_kwargs.beta=1.0 \
  reward_model.reward_kwargs.turn_off_elliptical_if_none_correct=False \
@@ -61,6 +62,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  trainer.save_freq=-1 \
  trainer.test_freq=-1 \
  trainer.total_epochs=15 \
+ trainer.resume_mode=disable \
  trainer.seed=41 2>&1 | tee verl_demo.log
 
 #  trainer.resume_mode=resume_path \

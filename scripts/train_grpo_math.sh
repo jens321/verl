@@ -1,16 +1,17 @@
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
-SPARSE_DIM=8
+SPARSE_DIM=128
 BETA=0.01
 ROLLOUTS=8
-REWARD_TYPE=leave_one_out
-RANDOMIZE_SPARSE_MATRIX=True
+REWARD_TYPE=leverage
+RANDOMIZE_SPARSE_MATRIX=False
 TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT=False
 TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT=False
 TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT=False
 TURN_OFF_AT_HIGHEST_PASS_AT_K=False
 TRAIN_RANDOM_SUBSET_SIZE=512
-ELLIPTICAL_NORMALIZATION=z_score
+ELLIPTICAL_NORMALIZATION=none
+PERSIST_COVARIANCE=True
 TRAIN_VAL_N=$((2 * ${ROLLOUTS})) # always double the rollout size since we're estimating pass@k where k is the rollout size
 ALPHA=1.0
 TEST_FREQ=5
@@ -34,8 +35,8 @@ else
     PASS_AT_K_FREQ=-1
 fi
 
-for SEED in 41 43; do
-    for REWARD_MODEL_ENABLE in False; do
+for SEED in 41 42; do
+    for REWARD_MODEL_ENABLE in True; do
         ELLIPTICAL_ENABLE=${REWARD_MODEL_ENABLE}
 
         if [ ${REWARD_MODEL_ENABLE} == True ]; then
@@ -72,6 +73,7 @@ for SEED in 41 43; do
         echo "ELLIPTICAL_NORMALIZATION: ${ELLIPTICAL_NORMALIZATION}"
         echo "RESUME_MODE: ${RESUME_MODE}"
         echo "RESUME_FROM_PATH: ${RESUME_FROM_PATH}"
+        echo "PERSIST_COVARIANCE: ${PERSIST_COVARIANCE}"
         sbatch --job-name=train_${ALGORITHM}_MATH_elliptical_${REWARD_MODEL_ENABLE}_beta_${BETA}_sparse_${SPARSE_DIM} scripts/train_grpo_math.slurm \
             ${MODEL_PATH} \
             ${REWARD_MODEL_ENABLE} \
@@ -99,7 +101,8 @@ for SEED in 41 43; do
             ${SAVE_FREQ} \
             ${ELLIPTICAL_NORMALIZATION} \
             ${RESUME_MODE} \
-            "${RESUME_FROM_PATH}"
+            "${RESUME_FROM_PATH}" \
+            ${PERSIST_COVARIANCE}
         echo "--------------------------------"
     done
 done
