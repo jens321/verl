@@ -1931,6 +1931,10 @@ class EllipticalRewardModelWorker(RewardModelWorker):
         self.sparse_dim = config.elliptical.sparse_dim
         self.sparse_matrix = None
         self.randomize_sparse_matrix = config.elliptical.randomize_sparse_matrix
+        self.persist_covariance = config.elliptical.persist_covariance
+        self.cov_inv_dict = {}
+        self.mean_hidden_states_mu_dict = {}
+        self.hidden_mean_counter_dict = {}
 
     @staticmethod
     def _construct_sparse_matrix(features: torch.Tensor, sparse_dim: int) -> torch.Tensor:
@@ -2167,34 +2171,49 @@ class EllipticalRewardModelWorker(RewardModelWorker):
         output = output.to("cpu")
         return output
 
-    def _compute_bonuses(self, centered_mean_hidden_states, cov_inv):
+    def _compute_bonuses(self, hidden_states, cov_inv, prompt_index: int):
         if self.config.elliptical.reward_type == 'leave_one_out':
-            bonuses = []
-            for i, hidden_state in enumerate(centered_mean_hidden_states):
-                chosen_samp = hidden_state.unsqueeze(1)
-                middle_part = torch.inverse(1 - chosen_samp.t() @ cov_inv @ chosen_samp)
-                leave_one_out_cov_inv = cov_inv + cov_inv @ chosen_samp @ middle_part @ chosen_samp.t() @ cov_inv
-                bonus = (chosen_samp.t() @ leave_one_out_cov_inv @ chosen_samp).flatten().float()
-                bonuses.append(bonus)
+            if self.persist_covariance:
+                raise NotImplementedError("Leave-one-out with persistence is not implemented")
+            else:
+                bonuses = []
+                for i, hidden_state in enumerate(hidden_states):
+                    chosen_samp = hidden_state.unsqueeze(1)
+                    middle_part = torch.inverse(1 - chosen_samp.t() @ cov_inv @ chosen_samp)
+                    leave_one_out_cov_inv = cov_inv + cov_inv @ chosen_samp @ middle_part @ chosen_samp.t() @ cov_inv
+                    bonus = (chosen_samp.t() @ leave_one_out_cov_inv @ chosen_samp).flatten().float()
+                    bonuses.append(bonus)
 
-                # d = centered_mean_hidden_states.shape[-1]
-                # cov_inv_new = torch.eye(d, dtype=torch.float64).cuda() * self.lamb ** -1
-                # for j in range(len(centered_mean_hidden_states)):
-                #     if i == j:
-                #         continue
-                #     chosen_samp = centered_mean_hidden_states[j].unsqueeze(1)
-                #     middle_part = torch.inverse(1 + chosen_samp.t() @ cov_inv_new @ chosen_samp)
-                #     cov_inv_new = cov_inv_new - cov_inv_new @ chosen_samp @ middle_part @ chosen_samp.t() @ cov_inv_new
-                # chosen_samp = hidden_state.unsqueeze(1)
-                # bonus_new = (chosen_samp.t() @ cov_inv_new @ chosen_samp).flatten().float()
-                # assert bonus_new == bonus, f"bonus_new: {bonus_new} != bonus: {bonus}"
-                # assert torch.allclose(leave_one_out_cov_inv, cov_inv_new)
+                    # d = hidden_states.shape[-1]
+                    # cov_inv_new = torch.eye(d, dtype=torch.float64).cuda() * self.lamb ** -1
+                    # for j in range(len(hidden_states)):
+                    #     if i == j:
+                    #         continue
+                    #     chosen_samp = hidden_states[j].unsqueeze(1)
+                    #     middle_part = torch.inverse(1 + chosen_samp.t() @ cov_inv_new @ chosen_samp)
+                    #     cov_inv_new = cov_inv_new - cov_inv_new @ chosen_samp @ middle_part @ chosen_samp.t() @ cov_inv_new
+                    # chosen_samp = hidden_state.unsqueeze(1)
+                    # bonus_new = (chosen_samp.t() @ cov_inv_new @ chosen_samp).flatten().float()
+                    # assert bonus_new == bonus, f"bonus_new: {bonus_new} != bonus: {bonus}"
+                    # assert torch.allclose(leave_one_out_cov_inv, cov_inv_new)
 
-            bonuses = torch.concat(bonuses)
+                bonuses = torch.concat(bonuses)
 
         elif self.config.elliptical.reward_type == 'leverage':
-            batch_cov_inv = cov_inv.unsqueeze(0).expand(centered_mean_hidden_states.shape[0], -1, -1)
-            bonuses = (centered_mean_hidden_states.unsqueeze(1) @ batch_cov_inv @ centered_mean_hidden_states.unsqueeze(2)).flatten().float()
+            if self.persist_covariance:
+                hidden_mean = self.mean_hidden_states_mu_dict[prompt_index]
+                hidden_mean_counter = self.hidden_mean_counter_dict[prompt_index]
+
+                hidden_states = hidden_states - hidden_mean
+
+                numerator = (cov_inv @ hidden_mean.unsqueeze(1) @ hidden_mean.unsqueeze(0) @ cov_inv)
+                denominator = (-1/hidden_mean_counter + hidden_mean.t() @ cov_inv @ hidden_mean)
+                cov_inv_mean_adjusted = cov_inv - numerator / denominator
+                batch_cov_inv = cov_inv_mean_adjusted.unsqueeze(0).expand(hidden_states.shape[0], -1, -1)
+            else:
+                batch_cov_inv = cov_inv.unsqueeze(0).expand(hidden_states.shape[0], -1, -1)
+            
+            bonuses = (hidden_states.unsqueeze(1) @ batch_cov_inv @ hidden_states.unsqueeze(2)).flatten().float()
 
         return bonuses
 
@@ -2248,19 +2267,45 @@ class EllipticalRewardModelWorker(RewardModelWorker):
             seen_uids.add(uid)
             mask = data.non_tensor_batch['uid'] == uid
             filtered_mean_hidden_states = mean_hidden_states[mask]
-            centered_mean_hidden_states = filtered_mean_hidden_states - filtered_mean_hidden_states.mean(dim=0)
 
-            # construct inverse covariance matrix
-            d = centered_mean_hidden_states.shape[-1]
-            cov_inv = torch.eye(d, dtype=torch.float64).cuda() * self.lamb ** -1
+            prompt_index = data_item.non_tensor_batch['extra_info']['index']
+
+            if self.persist_covariance:
+                # first update the mean hidden states mu
+                if prompt_index not in self.mean_hidden_states_mu_dict:
+                    self.mean_hidden_states_mu_dict[prompt_index] = filtered_mean_hidden_states.mean(dim=0)
+                    self.hidden_mean_counter_dict[prompt_index] = mask.sum()
+                else:
+                    total_count = self.hidden_mean_counter_dict[prompt_index] + mask.sum()
+                    old_mu = self.mean_hidden_states_mu_dict[prompt_index]
+                    new_mu = (old_mu * self.hidden_mean_counter_dict[prompt_index] + filtered_mean_hidden_states.mean(dim=0) * mask.sum()) / total_count
+                    self.mean_hidden_states_mu_dict[prompt_index] = new_mu
+                    self.hidden_mean_counter_dict[prompt_index] = total_count
+
+                # NOTE: we don't center here since otherwise the covariance will accumulate stale means
+                final_mean_hidden_states = filtered_mean_hidden_states
+
+                if prompt_index not in self.cov_inv_dict:
+                    d = final_mean_hidden_states.shape[-1]
+                    self.cov_inv_dict[prompt_index] = torch.eye(d, dtype=torch.float64).cuda() * self.lamb ** -1
+                cov_inv = self.cov_inv_dict[prompt_index]
+            else:
+                centered_mean_hidden_states = filtered_mean_hidden_states - filtered_mean_hidden_states.mean(dim=0)
+                final_mean_hidden_states = centered_mean_hidden_states
+
+                d = final_mean_hidden_states.shape[-1]
+                cov_inv = torch.eye(d, dtype=torch.float64).cuda() * self.lamb ** -1
 
             # update inverse covariance matrix with rank-1 updates
-            for hidden_state in centered_mean_hidden_states:
+            for hidden_state in final_mean_hidden_states:
                 chosen_samp = hidden_state.unsqueeze(1)
                 middle_part = torch.inverse(1 + chosen_samp.t() @ cov_inv @ chosen_samp)
                 cov_inv = cov_inv - cov_inv @ chosen_samp @ middle_part @ chosen_samp.t() @ cov_inv
 
-            raw_bonuses = self._compute_bonuses(centered_mean_hidden_states, cov_inv)
+            if self.persist_covariance:
+                self.cov_inv_dict[prompt_index] = cov_inv
+
+            raw_bonuses = self._compute_bonuses(final_mean_hidden_states, cov_inv, prompt_index)
             normalized_bonuses = self._normalize_bonuses(raw_bonuses)
 
             prompt_ids = data.batch["prompts"][mask]
