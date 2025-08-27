@@ -1,31 +1,33 @@
+TASK=gsm8k
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
-SPARSE_DIM=128
+SPARSE_DIM=32
 BETA=0.01
 ROLLOUTS=8
 REWARD_TYPE=leverage
-RANDOMIZE_SPARSE_MATRIX=False
+RANDOMIZE_SPARSE_MATRIX=True
 TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT=False
 TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT=False
 TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT=False
 TURN_OFF_AT_HIGHEST_PASS_AT_K=False
 TRAIN_RANDOM_SUBSET_SIZE=512
 ELLIPTICAL_NORMALIZATION=none
-PERSIST_COVARIANCE=True
+PERSIST_COVARIANCE=False
 TRAIN_VAL_N=$((2 * ${ROLLOUTS})) # always double the rollout size since we're estimating pass@k where k is the rollout size
 ALPHA=1.0
 TEST_FREQ=5
 SAVE_FREQ=-1
 RESUME_MODE=disable
 RESUME_FROM_PATH=''
+USE_KL_LOSS=True
 
 if [ ${ALGORITHM} == "dr_grpo" ]; then
     LOSS_AGG_MODE="seq-mean-token-sum-norm"
-    USE_KL_LOSS=False
+    KL_LOSS_COEF=0.0
     NORM_ADV_BY_STD_IN_GRPO=False
 else
     LOSS_AGG_MODE="token-mean"
-    USE_KL_LOSS=False
+    KL_LOSS_COEF=0.0 # default: 0.001
     NORM_ADV_BY_STD_IN_GRPO=True
 fi
 
@@ -35,8 +37,8 @@ else
     PASS_AT_K_FREQ=-1
 fi
 
-for SEED in 41 42; do
-    for REWARD_MODEL_ENABLE in True; do
+for SEED in 41 43; do
+    for REWARD_MODEL_ENABLE in False True; do
         ELLIPTICAL_ENABLE=${REWARD_MODEL_ENABLE}
 
         if [ ${REWARD_MODEL_ENABLE} == True ]; then
@@ -45,7 +47,7 @@ for SEED in 41 42; do
             REWARD_MANAGER=naive
         fi
 
-        echo "Running job with the following parameters:"
+        echo "Running job on ${TASK} with the following parameters:"
         echo "ALGORITHM: ${ALGORITHM}"
         echo "MODEL_PATH: ${MODEL_PATH}"
         echo "REWARD_MODEL_ENABLE: ${REWARD_MODEL_ENABLE}"
@@ -74,6 +76,7 @@ for SEED in 41 42; do
         echo "RESUME_MODE: ${RESUME_MODE}"
         echo "RESUME_FROM_PATH: ${RESUME_FROM_PATH}"
         echo "PERSIST_COVARIANCE: ${PERSIST_COVARIANCE}"
+        echo "KL_LOSS_COEF: ${KL_LOSS_COEF}"
         sbatch --job-name=train_${ALGORITHM}_MATH_elliptical_${REWARD_MODEL_ENABLE}_beta_${BETA}_sparse_${SPARSE_DIM} scripts/train_grpo_math.slurm \
             ${MODEL_PATH} \
             ${REWARD_MODEL_ENABLE} \
@@ -102,7 +105,9 @@ for SEED in 41 42; do
             ${ELLIPTICAL_NORMALIZATION} \
             ${RESUME_MODE} \
             "${RESUME_FROM_PATH}" \
-            ${PERSIST_COVARIANCE}
+            ${PERSIST_COVARIANCE} \
+            ${KL_LOSS_COEF} \
+            ${TASK}
         echo "--------------------------------"
     done
 done

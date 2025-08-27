@@ -40,9 +40,11 @@ ELLIPTICAL_NORMALIZATION=${25}
 RESUME_MODE=${26}
 RESUME_FROM_PATH=${27}
 PERSIST_COVARIANCE=${28}
+KL_LOSS_COEF=${29}
+TASK=${30}
 
-math_train_path=$HOME/data/math/train.parquet
-math_test_path=$HOME/data/math/test.parquet
+math_train_path=$HOME/data/${TASK}/train.parquet
+math_test_path=$HOME/data/${TASK}/test.parquet
 
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
@@ -56,14 +58,13 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     data.max_response_length=1024 \
     data.filter_overlong_prompts=True \
     data.truncation='error' \
-    data.task=math \
+    data.task=$TASK \
     actor_rollout_ref.model.path="$MODEL_PATH" \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.ppo_mini_batch_size=256 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=16 \
-    actor_rollout_ref.actor.use_kl_loss=True \
-    actor_rollout_ref.actor.kl_loss_coef=0.001 \
+    actor_rollout_ref.actor.kl_loss_coef=$KL_LOSS_COEF \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \

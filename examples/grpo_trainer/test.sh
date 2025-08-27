@@ -1,7 +1,7 @@
 set -x
 
-math_train_path=$HOME/data/gsm8k/train.parquet
-math_test_path=$HOME/data/gsm8k/test.parquet
+math_train_path=$HOME/data/math/train.parquet
+math_test_path=$HOME/data/math/test.parquet
 
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
@@ -11,9 +11,9 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  data.train_files="$train_files" \
  data.val_files="$test_files" \
  data.train_batch_size=256 \
- data.max_prompt_length=512 \
+ data.max_prompt_length=1024 \
  data.max_response_length=256 \
- data.task=gsm8k \
+ data.task=math \
  actor_rollout_ref.model.path=Qwen/Qwen2.5-0.5B-Instruct \
  actor_rollout_ref.actor.optim.lr=1e-6 \
  actor_rollout_ref.model.use_remove_padding=True \
@@ -29,7 +29,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
  actor_rollout_ref.rollout.name=vllm \
  actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
- actor_rollout_ref.rollout.n=8 \
+ actor_rollout_ref.rollout.n=5 \
  actor_rollout_ref.rollout.train_val_kwargs.n=16 \
  actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=4 \
  actor_rollout_ref.ref.fsdp_config.param_offload=True \
