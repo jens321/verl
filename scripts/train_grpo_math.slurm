@@ -92,11 +92,11 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     reward_model.elliptical.normalization=$ELLIPTICAL_NORMALIZATION \
     reward_model.elliptical.persist_covariance=$PERSIST_COVARIANCE \
     reward_model.reward_manager=$REWARD_MANAGER \
-    reward_model.reward_kwargs.beta=$BETA \
-    reward_model.reward_kwargs.alpha=$ALPHA \
-    reward_model.reward_kwargs.turn_off_elliptical_if_none_correct=$TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT \
-    reward_model.reward_kwargs.turn_off_elliptical_if_some_correct=$TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT \
-    reward_model.reward_kwargs.turn_off_elliptical_if_all_correct=$TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT \
+    reward_model.reward_kwargs.elliptical.beta=$BETA \
+    reward_model.reward_kwargs.elliptical.alpha=$ALPHA \
+    reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_none_correct=$TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT \
+    reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_some_correct=$TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT \
+    reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_all_correct=$TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT \
     actor_rollout_ref.actor.loss_agg_mode=$LOSS_AGG_MODE \
     actor_rollout_ref.actor.use_kl_loss=$USE_KL_LOSS \
     algorithm.norm_adv_by_std_in_grpo=$NORM_ADV_BY_STD_IN_GRPO \

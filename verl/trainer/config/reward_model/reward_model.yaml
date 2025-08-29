@@ -27,11 +27,12 @@ elliptical:
   persist_covariance: False
 
 reward_kwargs:
-  alpha: 1.0
-  beta: 1.0
-  turn_off_elliptical_if_none_correct: False
-  turn_off_elliptical_if_some_correct: False
-  turn_off_elliptical_if_all_correct: False
+  elliptical:
+    alpha: 1.0
+    beta: 1.0
+    turn_off_elliptical_if_none_correct: False
+    turn_off_elliptical_if_some_correct: False
+    turn_off_elliptical_if_all_correct: False
 
 # model config for reward scoring
 model:
@@ -72,6 +73,7 @@ forward_max_token_len_per_gpu: ${critic.forward_max_token_len_per_gpu}
 # Default is naive. If all verification functions are multiprocessing-safe,
 # the reward manager can be set to prime for parallel verification.
 reward_manager: naive
+dev_reward_manager: naive
 
 # Whether to launch custom reward function asynchronously during log_prob
 # custom reward function executed async on CPU, during log_prob

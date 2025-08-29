@@ -25,7 +25,18 @@ from verl.workers.reward_manager import register, NaiveRewardManager
 class EllipticalRewardManager(NaiveRewardManager):
     """The reward manager."""
 
-    def __init__(self, tokenizer, num_examine, compute_score=None, reward_fn_key="data_source", beta: int = 1.0, turn_off_elliptical_if_none_correct: bool = False, turn_off_elliptical_if_some_correct: bool = False, turn_off_elliptical_if_all_correct: bool = False, alpha: float = 0.0) -> None:
+    def __init__(
+            self, 
+            tokenizer, 
+            num_examine, 
+            compute_score=None, 
+            reward_fn_key="data_source", 
+            beta: int = 1.0, 
+            turn_off_elliptical_if_none_correct: bool = False, 
+            turn_off_elliptical_if_some_correct: bool = False, 
+            turn_off_elliptical_if_all_correct: bool = False, 
+            alpha: float = 0.0
+        ) -> None:
         """
         Initialize the NaiveRewardManager instance.
 
