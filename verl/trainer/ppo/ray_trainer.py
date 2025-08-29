@@ -313,6 +313,8 @@ class RayPPOTrainer:
         self.reward_fn = reward_fn
         self.val_reward_fn = val_reward_fn
 
+        self.drop_samples_with_no_adv = config.data.drop_samples_with_no_adv
+
         self.hybrid_engine = config.actor_rollout_ref.hybrid_engine
         assert self.hybrid_engine, "Currently, only support hybrid engine"
 
@@ -1186,6 +1188,17 @@ class RayPPOTrainer:
                     # repeat to align with repeated responses in rollout
                     batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True)
                     batch = batch.union(gen_batch_output)
+
+                    # Potentially drop samples with no advantage
+                    if self.drop_samples_with_no_adv:
+                        real_train_batch_size = self.config.data.train_batch_size * self.config.actor_rollout_ref.rollout.n
+                        filtered_batch = self.drop_no_adv_samples_from_batch(batch)
+                        dynamic_batch_collection.append(filtered_batch)
+                        if sum([len(b) for b in dynamic_batch_collection]) < real_train_batch_size:
+                            continue
+                        else:
+                            batch = DataProto.concat(dynamic_batch_collection)
+                            dynamic_batch_collection = []
 
                     if "response_mask" not in batch.batch.keys():
                         batch.batch["response_mask"] = compute_response_mask(batch)
