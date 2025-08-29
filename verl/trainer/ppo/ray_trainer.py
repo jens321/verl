@@ -1248,6 +1248,22 @@ class RayPPOTrainer:
 
                             metrics.update(calculate_debug_metrics(batch))
 
+                    with marked_timer("reward", timing_raw, color="yellow"):
+                        # compute reward model score
+                        if self.use_rm:
+                            if self.config.reward_model.elliptical.enable:
+                                hidden_states = self.rm_wg.compute_hidden_states(batch)
+                                batch = batch.union(hidden_states)
+                                reward_tensor = self.rm_wg.compute_rm_score(batch)
+                            else:
+                                reward_tensor = self.rm_wg.compute_rm_score(batch)
+                            batch = batch.union(reward_tensor)
+
+                        if self.config.reward_model.launch_reward_fn_async:
+                            future_reward = compute_reward_async.remote(batch, self.config, self.tokenizer)
+                        else:
+                            reward_tensor, reward_extra_infos_dict = compute_reward(batch, self.reward_fn)
+
                     if self.use_reference_policy:
                         # compute reference log_prob
                         with marked_timer(str(Role.RefPolicy), timing_raw, color="olive"):
