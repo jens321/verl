@@ -1,4 +1,4 @@
-TASK=gsm8k
+TASK=math
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 SPARSE_DIM=32
@@ -15,7 +15,7 @@ ELLIPTICAL_NORMALIZATION=none
 PERSIST_COVARIANCE=False
 TRAIN_VAL_N=$((2 * ${ROLLOUTS})) # always double the rollout size since we're estimating pass@k where k is the rollout size
 ALPHA=1.0
-TEST_FREQ=5
+TEST_FREQ=20
 SAVE_FREQ=-1
 RESUME_MODE=disable
 RESUME_FROM_PATH=''
