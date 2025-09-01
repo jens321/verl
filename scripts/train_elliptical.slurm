@@ -42,6 +42,7 @@ RESUME_FROM_PATH=${27}
 PERSIST_COVARIANCE=${28}
 KL_LOSS_COEF=${29}
 TASK=${30}
+TURN_OFF_AT_GLOBAL_STEPS=${31}
 
 math_train_path=$HOME/data/${TASK}/train.parquet
 math_test_path=$HOME/data/${TASK}/test.parquet
@@ -91,6 +92,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     reward_model.elliptical.turn_off_at_highest_pass_at_k=$TURN_OFF_AT_HIGHEST_PASS_AT_K \
     reward_model.elliptical.normalization=$ELLIPTICAL_NORMALIZATION \
     reward_model.elliptical.persist_covariance=$PERSIST_COVARIANCE \
+    reward_model.elliptical.turn_off_at_global_steps=$TURN_OFF_AT_GLOBAL_STEPS \
     reward_model.reward_manager=$REWARD_MANAGER \
     reward_model.reward_kwargs.elliptical.beta=$BETA \
     reward_model.reward_kwargs.elliptical.alpha=$ALPHA \
