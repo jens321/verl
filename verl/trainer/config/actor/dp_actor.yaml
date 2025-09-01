@@ -28,6 +28,9 @@ strategy: fsdp
 # Gradient clipping for actor updates, specific to the strategy.
 grad_clip: 1.0
 
+# Threshold to skip the update if grad_norm is greater than or equal to it
+grad_skip_thresh: -1
+
 # Sequence parallelism size for Ulysses-style model parallelism
 # oc.select: the default val for ref.ulysses_sequence_parallel_size
 ulysses_sequence_parallel_size: 1
