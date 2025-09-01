@@ -1191,10 +1191,9 @@ class RayPPOTrainer:
 
                     # Potentially drop samples with no advantage
                     if self.drop_samples_with_no_adv:
-                        real_train_batch_size = self.config.data.train_batch_size * self.config.actor_rollout_ref.rollout.n
                         filtered_batch = self.drop_no_adv_samples_from_batch(batch)
                         dynamic_batch_collection.append(filtered_batch)
-                        if sum([len(b) for b in dynamic_batch_collection]) < real_train_batch_size:
+                        if sum([len(b) for b in dynamic_batch_collection]) < self.config.data.train_batch_size * self.config.actor_rollout_ref.rollout.n:
                             continue
                         else:
                             batch = DataProto.concat(dynamic_batch_collection)
