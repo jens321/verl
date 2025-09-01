@@ -286,7 +286,7 @@ class DataParallelPPOActor(BasePPOActor):
             grad_norm = grad_norm.full_tensor()
 
         # if grad_norm is not finite, skip the update
-        if not torch.isfinite(grad_norm):
+        if not torch.isfinite(grad_norm) or (self.config.grad_skip_thresh != -1 and grad_norm >= self.config.grad_skip_thresh):
             print(f"WARN: rank {torch.distributed.get_rank()} grad_norm is not finite: {grad_norm}")
             self.actor_optimizer.zero_grad()
         else:
