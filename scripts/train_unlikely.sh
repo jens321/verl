@@ -14,7 +14,7 @@ LOSS_AGG_MODE="token-mean"
 KL_LOSS_COEF=0.1
 NORM_ADV_BY_STD_IN_GRPO=True
 
-for SEED in 41 43; do
+for SEED in 44 45; do
     echo "Running job on ${TASK} with the following parameters:"
     echo "ALGORITHM: ${ALGORITHM}"
     echo "MODEL_PATH: ${MODEL_PATH}"
@@ -29,7 +29,7 @@ for SEED in 41 43; do
     echo "RESUME_MODE: ${RESUME_MODE}"
     echo "RESUME_FROM_PATH: ${RESUME_FROM_PATH}"
     echo "KL_LOSS_COEF: ${KL_LOSS_COEF}"
-    sbatch --job-name=train_${ALGORITHM}_MATH_unlikely_beta_${BETA} scripts/train_unlikely_math.slurm \
+    sbatch --job-name=train_${ALGORITHM}_MATH_unlikely_beta_${BETA} scripts/train_unlikely.slurm \
         ${MODEL_PATH} \
         ${SEED} \
         ${BETA} \
