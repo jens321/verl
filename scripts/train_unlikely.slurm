@@ -34,7 +34,7 @@ PPO_MINI_BATCH_SIZE=$((256 / ${ROLLOUTS}))
 TRAIN_BATCH_SIZE=$((256 / ${ROLLOUTS}))
 
 math_train_path=$HOME/data/${TASK}/train.parquet
-math_test_path=$HOME/data/${TASK}/test.parquet
+math_test_path=$HOME/data/${TASK}/dev.parquet
 
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
