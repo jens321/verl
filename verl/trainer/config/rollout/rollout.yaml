@@ -133,13 +133,13 @@ val_kwargs:
   top_p: 1.0
 
   # Sampling temperature for rollout.
-  temperature: 0
+  temperature: 1.0
 
   # whether to repeat n times for validation
-  n: 1
+  n: 100
 
   # Whether to sample during training rollout. False uses greedy sampling.
-  do_sample: False
+  do_sample: True
 
 # Sampling parameters used during hard validation.
 hard_val_kwargs:
