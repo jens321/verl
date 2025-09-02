@@ -1,14 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=train_grpo_MATH
+#SBATCH --job-name=train_elliptical
 #SBATCH --output=slurm_output/%x-%j.out
 #SBATCH -N 1 #nodes
 #SBATCH -n 1 #tasks
-#SBATCH --cpus-per-task=90
-#SBATCH --mem=900G
+#SBATCH --cpus-per-task=40
+#SBATCH --mem=300G
 #SBATCH --time=00-23:59:59    # Run for 23:59:59 hours
-#SBATCH --gres=gpu:8
-#SBATCH --partition=pli-c
-#SBATCH --account=pli
+#SBATCH --gres=gpu:4
+#SBATCH --constraint=gpu80
 
 set -x
 
@@ -43,9 +42,10 @@ PERSIST_COVARIANCE=${28}
 KL_LOSS_COEF=${29}
 TASK=${30}
 TURN_OFF_AT_GLOBAL_STEPS=${31}
+PPO_EPOCHS=${32}
 
 math_train_path=$HOME/data/${TASK}/train.parquet
-math_test_path=$HOME/data/${TASK}/test.parquet
+math_test_path=$HOME/data/${TASK}/dev.parquet
 
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
@@ -68,6 +68,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     actor_rollout_ref.actor.kl_loss_coef=$KL_LOSS_COEF \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
+    actor_rollout_ref.actor.ppo_epochs=$PPO_EPOCHS \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.actor.fsdp_config.param_offload=False \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \
@@ -110,7 +111,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.logger='["console","wandb"]' \
     trainer.project_name='llm-exploration-rl-training' \
     trainer.experiment_name="${MODEL_PATH}_${ALGORITHM}_elliptical_${ELLIPTICAL_ENABLE}_beta_${BETA}_seed_${SEED}_sparse_${SPARSE_DIM}_reward_type_${REWARD_TYPE}_rollouts_${ROLLOUTS}_randomize_sparse_matrix_${RANDOMIZE_SPARSE_MATRIX}_turn_off_elliptical_if_none_correct_${TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT}_turn_off_elliptical_if_some_correct_${TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT}_turn_off_elliptical_if_all_correct_${TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT}_train_val_n_${TRAIN_VAL_N}_turn_off_at_highest_pass_at_k_${TURN_OFF_AT_HIGHEST_PASS_AT_K}_pass_at_k_freq_${PASS_AT_K_FREQ}_train_random_subset_size_${TRAIN_RANDOM_SUBSET_SIZE}_alpha_${ALPHA}" \
-    trainer.n_gpus_per_node=8 \
+    trainer.n_gpus_per_node=4 \
     trainer.nnodes=1 \
     trainer.save_freq=$SAVE_FREQ \
     trainer.test_freq=$TEST_FREQ \
