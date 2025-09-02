@@ -545,11 +545,11 @@ def process_validation_metrics(
                     ns.append(n_resps)
 
                     for n in ns:
-                        [(bon_mean, bon_std), (won_mean, won_std)] = bootstrap_metric(
-                            data=var_vals, subset_size=n, reduce_fns=[np.max, np.min], seed=seed
-                        )
-                        metric[f"best@{n}/mean"], metric[f"best@{n}/std"] = bon_mean, bon_std
-                        metric[f"worst@{n}/mean"], metric[f"worst@{n}/std"] = won_mean, won_std
+                        # [(bon_mean, bon_std), (won_mean, won_std)] = bootstrap_metric(
+                        #     data=var_vals, subset_size=n, reduce_fns=[np.max, np.min], seed=seed
+                        # )
+                        # metric[f"best@{n}/mean"], metric[f"best@{n}/std"] = bon_mean, bon_std
+                        # metric[f"worst@{n}/mean"], metric[f"worst@{n}/std"] = won_mean, won_std
                         metric[f"pass@{n}/mean"] = comb_estimator(n_resps, np.sum(var_vals), n)
                         if var2vals.get("pred", None) is not None:
                             vote_data = [
