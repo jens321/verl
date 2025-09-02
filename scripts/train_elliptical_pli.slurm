@@ -107,7 +107,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     algorithm.use_kl_in_reward=False \
     trainer.pass_at_k_freq=$PASS_AT_K_FREQ \
     trainer.train_random_subset_size=$TRAIN_RANDOM_SUBSET_SIZE \
-    trainer.val_hard_subset=True \
+    trainer.val_hard_subset=False \
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
     trainer.project_name='llm-exploration-rl-training' \

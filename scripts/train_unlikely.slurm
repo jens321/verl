@@ -81,7 +81,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     actor_rollout_ref.actor.use_kl_loss=$USE_KL_LOSS \
     algorithm.norm_adv_by_std_in_grpo=$NORM_ADV_BY_STD_IN_GRPO \
     algorithm.use_kl_in_reward=False \
-    trainer.val_hard_subset=True \
+    trainer.val_hard_subset=False \
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
     trainer.project_name='llm-exploration-rl-training' \
