@@ -1,7 +1,7 @@
 set -x
 
 math_train_path=$HOME/data/math/train.parquet
-math_test_path=$HOME/data/math/test.parquet
+math_test_path=$HOME/data/math/dev.parquet
 
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"

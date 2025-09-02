@@ -1,7 +1,7 @@
 set -x
 
 math_train_path=$HOME/data/math/train.parquet
-math_test_path=$HOME/data/math/test.parquet
+math_test_path=$HOME/data/math/dev.parquet
 
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
@@ -33,6 +33,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  actor_rollout_ref.rollout.name=vllm \
  actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
  actor_rollout_ref.rollout.n=2 \
+ actor_rollout_ref.rollout.val_kwargs.n=4 \
  actor_rollout_ref.rollout.train_val_kwargs.n=16 \
  actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=4 \
  actor_rollout_ref.ref.fsdp_config.param_offload=True \
@@ -60,7 +61,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  trainer.val_hard_subset=False \
  trainer.critic_warmup=0 \
  trainer.logger='["console"]' \
- trainer.val_before_train=False \
+ trainer.val_before_train=True \
  trainer.n_gpus_per_node=1 \
  trainer.nnodes=1 \
  trainer.save_freq=-1 \
