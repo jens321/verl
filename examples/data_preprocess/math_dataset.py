@@ -24,10 +24,8 @@ import datasets
 from verl.utils.hdfs_io import copy, makedirs
 from verl.utils.reward_score.math_reward import last_boxed_only_string, remove_boxed
 
-
 def extract_solution(solution_str):
     return remove_boxed(last_boxed_only_string(solution_str))
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
