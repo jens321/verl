@@ -1,3 +1,4 @@
+BACKEND=pli
 TASK=math
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
@@ -21,6 +22,7 @@ RESUME_MODE=disable
 RESUME_FROM_PATH=''
 USE_KL_LOSS=True
 TURN_OFF_AT_GLOBAL_STEPS=-1
+PPO_EPOCHS=2
 
 if [ ${ALGORITHM} == "dr_grpo" ]; then
     LOSS_AGG_MODE="seq-mean-token-sum-norm"
@@ -39,7 +41,7 @@ else
 fi
 
 for SEED in 41 43; do
-    for REWARD_MODEL_ENABLE in False; do
+    for REWARD_MODEL_ENABLE in True; do
         ELLIPTICAL_ENABLE=${REWARD_MODEL_ENABLE}
 
         if [ ${REWARD_MODEL_ENABLE} == True ]; then
@@ -79,7 +81,8 @@ for SEED in 41 43; do
         echo "PERSIST_COVARIANCE: ${PERSIST_COVARIANCE}"
         echo "KL_LOSS_COEF: ${KL_LOSS_COEF}"
         echo "TURN_OFF_AT_GLOBAL_STEPS: ${TURN_OFF_AT_GLOBAL_STEPS}"
-        sbatch --job-name=train_${ALGORITHM}_MATH_elliptical_${REWARD_MODEL_ENABLE}_beta_${BETA}_sparse_${SPARSE_DIM} scripts/train_elliptical.slurm \
+        echo "PPO_EPOCHS: ${PPO_EPOCHS}"
+        sbatch --job-name=train_${ALGORITHM}_MATH_elliptical_${REWARD_MODEL_ENABLE}_beta_${BETA}_sparse_${SPARSE_DIM} scripts/train_elliptical_${BACKEND}.slurm \
             ${MODEL_PATH} \
             ${REWARD_MODEL_ENABLE} \
             ${ELLIPTICAL_ENABLE} \
@@ -110,7 +113,8 @@ for SEED in 41 43; do
             ${PERSIST_COVARIANCE} \
             ${KL_LOSS_COEF} \
             ${TASK} \
-            ${TURN_OFF_AT_GLOBAL_STEPS}
+            ${TURN_OFF_AT_GLOBAL_STEPS} \
+            ${PPO_EPOCHS}
         echo "--------------------------------"
     done
 done
