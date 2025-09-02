@@ -315,6 +315,16 @@ class RayPPOTrainer:
 
         self.drop_samples_with_no_adv = config.data.drop_samples_with_no_adv
 
+        self.prompt_idx_to_gpt_4_pass_at_1 = dict()
+        path = os.path.join(DATA_DIR, self.config.data.task, "gpt-4o-mini")
+        for file in tqdm(os.listdir(path), desc="Loading GPT-4o-mini pass@1 ..."):
+            if file.endswith(".json"):
+                with open(os.path.join(path, file), "r") as f:
+                    data = json.load(f)
+                prompt_idx = data[0]['prompt_idx']  
+                results = [d['strict_correct'] if 'strict_correct' in d else d['correct'] for d in data]
+                self.prompt_idx_to_gpt_4_pass_at_1[prompt_idx] = sum(results) / len(results)
+
         self.hybrid_engine = config.actor_rollout_ref.hybrid_engine
         assert self.hybrid_engine, "Currently, only support hybrid engine"
 
@@ -591,6 +601,8 @@ class RayPPOTrainer:
             test_batch = test_batch.repeat(
                 repeat_times=self.config.actor_rollout_ref.rollout.val_kwargs.n, interleave=True
             )
+
+            problem_idxs.append(test_batch.non_tensor_batch["index"])
 
             # we only do validation on rule-based rm
             if self.config.reward_model.enable and test_batch[0].non_tensor_batch["reward_model"]["style"] == "model":
