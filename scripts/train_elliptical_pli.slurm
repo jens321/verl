@@ -44,6 +44,7 @@ KL_LOSS_COEF=${29}
 TASK=${30}
 TURN_OFF_AT_GLOBAL_STEPS=${31}
 PPO_EPOCHS=${32}
+TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT=${33}
 
 math_train_path=$HOME/data/${TASK}/train.parquet
 math_test_path=$HOME/data/${TASK}/dev.parquet
@@ -51,7 +52,7 @@ math_test_path=$HOME/data/${TASK}/dev.parquet
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
 
-PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtuyls python3 -m verl.trainer.main_ppo \
+PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtuyls python3 -u -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
@@ -101,6 +102,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_none_correct=$TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT \
     reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_some_correct=$TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT \
     reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_all_correct=$TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT \
+    reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_rollout_incorrect=$TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT \
     actor_rollout_ref.actor.loss_agg_mode=$LOSS_AGG_MODE \
     actor_rollout_ref.actor.use_kl_loss=$USE_KL_LOSS \
     algorithm.norm_adv_by_std_in_grpo=$NORM_ADV_BY_STD_IN_GRPO \

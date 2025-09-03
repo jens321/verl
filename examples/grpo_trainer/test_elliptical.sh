@@ -55,6 +55,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_none_correct=False \
  reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_some_correct=False \
  reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_all_correct=False \
+ reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_rollout_incorrect=True \
  algorithm.use_kl_in_reward=False \
  trainer.pass_at_k_freq=-1 \
  trainer.train_random_subset_size=4 \

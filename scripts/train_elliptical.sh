@@ -10,6 +10,7 @@ RANDOMIZE_SPARSE_MATRIX=True
 TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT=False
 TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT=False
 TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT=False
+TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT=False
 TURN_OFF_AT_HIGHEST_PASS_AT_K=False
 TRAIN_RANDOM_SUBSET_SIZE=512
 ELLIPTICAL_NORMALIZATION=none
@@ -22,7 +23,7 @@ RESUME_MODE=disable
 RESUME_FROM_PATH=''
 USE_KL_LOSS=True
 TURN_OFF_AT_GLOBAL_STEPS=-1
-PPO_EPOCHS=2
+PPO_EPOCHS=1
 
 if [ ${ALGORITHM} == "dr_grpo" ]; then
     LOSS_AGG_MODE="seq-mean-token-sum-norm"
@@ -40,7 +41,7 @@ else
     PASS_AT_K_FREQ=-1
 fi
 
-for SEED in 41 43; do
+for SEED in {41..45}; do
     for REWARD_MODEL_ENABLE in True; do
         ELLIPTICAL_ENABLE=${REWARD_MODEL_ENABLE}
 
@@ -82,6 +83,7 @@ for SEED in 41 43; do
         echo "KL_LOSS_COEF: ${KL_LOSS_COEF}"
         echo "TURN_OFF_AT_GLOBAL_STEPS: ${TURN_OFF_AT_GLOBAL_STEPS}"
         echo "PPO_EPOCHS: ${PPO_EPOCHS}"
+        echo "TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT: ${TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT}"
         sbatch --job-name=train_${ALGORITHM}_MATH_elliptical_${REWARD_MODEL_ENABLE}_beta_${BETA}_sparse_${SPARSE_DIM} scripts/train_elliptical_${BACKEND}.slurm \
             ${MODEL_PATH} \
             ${REWARD_MODEL_ENABLE} \
@@ -114,7 +116,8 @@ for SEED in 41 43; do
             ${KL_LOSS_COEF} \
             ${TASK} \
             ${TURN_OFF_AT_GLOBAL_STEPS} \
-            ${PPO_EPOCHS}
+            ${PPO_EPOCHS} \
+            ${TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT}
         echo "--------------------------------"
     done
 done

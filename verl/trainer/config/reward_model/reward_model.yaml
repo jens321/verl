@@ -30,6 +30,7 @@ reward_kwargs:
     turn_off_elliptical_if_none_correct: False
     turn_off_elliptical_if_some_correct: False
     turn_off_elliptical_if_all_correct: False
+    turn_off_elliptical_if_rollout_incorrect: False
   unlikely:
     beta: 0.25
 

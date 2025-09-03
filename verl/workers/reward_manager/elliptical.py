@@ -34,7 +34,8 @@ class EllipticalRewardManager(NaiveRewardManager):
             beta: int = 1.0, 
             turn_off_elliptical_if_none_correct: bool = False, 
             turn_off_elliptical_if_some_correct: bool = False, 
-            turn_off_elliptical_if_all_correct: bool = False, 
+            turn_off_elliptical_if_all_correct: bool = False,
+            turn_off_elliptical_if_rollout_incorrect: bool = False,
             alpha: float = 0.0
         ) -> None:
         """
@@ -52,6 +53,7 @@ class EllipticalRewardManager(NaiveRewardManager):
         self.turn_off_elliptical_if_none_correct = turn_off_elliptical_if_none_correct
         self.turn_off_elliptical_if_some_correct = turn_off_elliptical_if_some_correct
         self.turn_off_elliptical_if_all_correct = turn_off_elliptical_if_all_correct
+        self.turn_off_elliptical_if_rollout_incorrect = turn_off_elliptical_if_rollout_incorrect
         self.alpha = alpha
 
     def __call__(self, data: DataProto, return_dict=False):
@@ -104,6 +106,10 @@ class EllipticalRewardManager(NaiveRewardManager):
         Returns:
             None
         """
+        if self.turn_off_elliptical_if_rollout_incorrect:
+            mask = extrinsic_reward_tensor.sum(dim=-1) == 0
+            intrinsic_reward_tensor[mask] = 0.0
+
         visited_uids = set()
         for uid in data.non_tensor_batch["uid"]:
             if uid in visited_uids:
