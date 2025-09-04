@@ -29,6 +29,9 @@ TASK=${14}
 SAVE_BEST_PASS_AT_1=${15}
 SAVE_BEST_PASS_AT_64=${16}
 CHECKPOINT_SAVE_CONTENTS=${17}
+SAVE_BEST_HARD_PASS_AT_1=${18}
+SAVE_BEST_HARD_PASS_AT_64=${19}
+MAX_ACTOR_CKPT_TO_KEEP=${20}
 
 # NOTE: unlikely repo sets rollout.n = 1, while we set it to 32
 # therefore, we have to scale down the batch sizes that internally get upscaled
@@ -99,6 +102,9 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.resume_mode=$RESUME_MODE \
     trainer.resume_from_path=$RESUME_FROM_PATH \
     trainer.save_best_pass_at_1=$SAVE_BEST_PASS_AT_1 \
-    trainer.save_best_pass_at_64=$SAVE_BEST_PASS_AT_64
+    trainer.save_best_pass_at_64=$SAVE_BEST_PASS_AT_64 \
+    trainer.save_best_hard_pass_at_1=$SAVE_BEST_HARD_PASS_AT_1 \
+    trainer.save_best_hard_pass_at_64=$SAVE_BEST_HARD_PASS_AT_64 \
+    trainer.max_actor_ckpt_to_keep=$MAX_ACTOR_CKPT_TO_KEEP
 
 exit 0

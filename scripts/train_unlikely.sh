@@ -9,8 +9,11 @@ RESUME_MODE=disable
 RESUME_FROM_PATH=''
 USE_KL_LOSS=True
 SAVE_BEST_PASS_AT_1=False
+SAVE_BEST_HARD_PASS_AT_1=False
 SAVE_BEST_PASS_AT_64=False
+SAVE_BEST_HARD_PASS_AT_64=False
 CHECKPOINT_SAVE_CONTENTS='["model"]'
+MAX_ACTOR_CKPT_TO_KEEP=1
 
 # GRPO specific
 LOSS_AGG_MODE="token-mean"
@@ -35,6 +38,9 @@ for SEED in 44 45; do
     echo "SAVE_BEST_PASS_AT_1: ${SAVE_BEST_PASS_AT_1}"
     echo "SAVE_BEST_PASS_AT_64: ${SAVE_BEST_PASS_AT_64}"
     echo "CHECKPOINT_SAVE_CONTENTS: ${CHECKPOINT_SAVE_CONTENTS}"
+    echo "SAVE_BEST_HARD_PASS_AT_1: ${SAVE_BEST_HARD_PASS_AT_1}"
+    echo "SAVE_BEST_HARD_PASS_AT_64: ${SAVE_BEST_HARD_PASS_AT_64}"
+    echo "MAX_ACTOR_CKPT_TO_KEEP: ${MAX_ACTOR_CKPT_TO_KEEP}"
     sbatch --job-name=train_${ALGORITHM}_MATH_unlikely_beta_${BETA} scripts/train_unlikely.slurm \
         ${MODEL_PATH} \
         ${SEED} \
@@ -52,6 +58,9 @@ for SEED in 44 45; do
         ${TASK} \
         ${SAVE_BEST_PASS_AT_1} \
         ${SAVE_BEST_PASS_AT_64} \
-        ${CHECKPOINT_SAVE_CONTENTS}
+        ${CHECKPOINT_SAVE_CONTENTS} \
+        ${SAVE_BEST_HARD_PASS_AT_1} \
+        ${SAVE_BEST_HARD_PASS_AT_64} \
+        ${MAX_ACTOR_CKPT_TO_KEEP}
     echo "--------------------------------"
 done

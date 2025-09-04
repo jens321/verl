@@ -48,6 +48,9 @@ TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT=${33}
 SAVE_BEST_PASS_AT_1=${34}
 SAVE_BEST_PASS_AT_64=${35}
 CHECKPOINT_SAVE_CONTENTS=${36}
+SAVE_BEST_HARD_PASS_AT_1=${37}
+SAVE_BEST_HARD_PASS_AT_64=${38}
+MAX_ACTOR_CKPT_TO_KEEP=${39}
 
 math_train_path=$HOME/data/${TASK}/train.parquet
 math_test_path=$HOME/data/${TASK}/dev.parquet
@@ -127,7 +130,10 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.resume_mode=$RESUME_MODE \
     trainer.resume_from_path=$RESUME_FROM_PATH \
     trainer.save_best_pass_at_1=$SAVE_BEST_PASS_AT_1 \
-    trainer.save_best_pass_at_64=$SAVE_BEST_PASS_AT_64
+    trainer.save_best_pass_at_64=$SAVE_BEST_PASS_AT_64 \
+    trainer.save_best_hard_pass_at_1=$SAVE_BEST_HARD_PASS_AT_1 \
+    trainer.save_best_hard_pass_at_64=$SAVE_BEST_HARD_PASS_AT_64 \
+    trainer.max_actor_ckpt_to_keep=$MAX_ACTOR_CKPT_TO_KEEP
 
 exit 0
 
