@@ -828,13 +828,24 @@ class RayPPOTrainer:
                 config=self.config, worker_group=self.actor_rollout_wg, rm_wg=self.rm_wg
             )
 
-    def _save_checkpoint(self):
+    def _save_checkpoint(self, folder_prefix: str = "global_step"):
         from verl.utils.fs import local_mkdir_safe
 
         # path: given_path + `/global_step_{global_steps}` + `/actor`
-        local_global_step_folder = os.path.join(
-            self.config.trainer.default_local_dir, f"global_step_{self.global_steps}"
-        )
+        if folder_prefix == "global_step":
+            local_global_step_folder = os.path.join(
+                self.config.trainer.default_local_dir, f"global_step_{self.global_steps}"
+            )
+        elif folder_prefix == "best_pass@1":
+            local_global_step_folder = os.path.join(
+                self.config.trainer.default_local_dir, f"best_pass@1"
+            )
+        elif folder_prefix == "best_pass@64":
+            local_global_step_folder = os.path.join(
+                self.config.trainer.default_local_dir, f"best_pass@64"
+            )
+        else:
+            raise ValueError(f"Invalid folder prefix: {folder_prefix}")
 
         print(f"local_global_step_folder: {local_global_step_folder}")
         actor_local_path = os.path.join(local_global_step_folder, "actor")
