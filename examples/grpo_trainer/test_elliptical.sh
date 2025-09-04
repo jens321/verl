@@ -60,6 +60,8 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  algorithm.use_kl_in_reward=False \
  trainer.save_best_pass_at_1=False \
  trainer.save_best_pass_at_64=False \
+ trainer.save_best_hard_pass_at_1=True \
+ trainer.save_best_hard_pass_at_64=True \
  trainer.pass_at_k_freq=-1 \
  trainer.train_random_subset_size=4 \
  trainer.val_hard_subset=False \
@@ -68,10 +70,11 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  trainer.val_before_train=True \
  trainer.n_gpus_per_node=1 \
  trainer.nnodes=1 \
- trainer.save_freq=-1 \
- trainer.test_freq=-1 \
+ trainer.save_freq=1 \
+ trainer.test_freq=1 \
  trainer.total_epochs=15 \
  trainer.resume_mode=disable \
+ trainer.max_actor_ckpt_to_keep=1 \
  trainer.seed=41 2>&1 | tee verl_demo.log
 
 #  trainer.resume_mode=resume_path \
