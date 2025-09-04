@@ -828,7 +828,7 @@ class RayPPOTrainer:
                 config=self.config, worker_group=self.actor_rollout_wg, rm_wg=self.rm_wg
             )
 
-    def _save_checkpoint(self, folder_prefix: str = "global_step"):
+    def _save_checkpoint(self, folder_prefix: str = "global_step", force_save_optim: bool = False, force_save_extra: bool = False):
         from verl.utils.fs import local_mkdir_safe
 
         # path: given_path + `/global_step_{global_steps}` + `/actor`
@@ -840,9 +840,17 @@ class RayPPOTrainer:
             local_global_step_folder = os.path.join(
                 self.config.trainer.default_local_dir, f"best_pass@1"
             )
+        elif folder_prefix == "best_hard_pass@1":
+            local_global_step_folder = os.path.join(
+                self.config.trainer.default_local_dir, f"best_hard_pass@1"
+            )
         elif folder_prefix == "best_pass@64":
             local_global_step_folder = os.path.join(
                 self.config.trainer.default_local_dir, f"best_pass@64"
+            )
+        elif folder_prefix == "best_hard_pass@64":
+            local_global_step_folder = os.path.join(
+                self.config.trainer.default_local_dir, f"best_hard_pass@64"
             )
         else:
             raise ValueError(f"Invalid folder prefix: {folder_prefix}")
@@ -870,7 +878,12 @@ class RayPPOTrainer:
         )
 
         self.actor_rollout_wg.save_checkpoint(
-            actor_local_path, actor_remote_path, self.global_steps, max_ckpt_to_keep=max_actor_ckpt_to_keep
+            actor_local_path, 
+            actor_remote_path, 
+            self.global_steps, 
+            max_ckpt_to_keep=max_actor_ckpt_to_keep, 
+            force_save_optim=force_save_optim, 
+            force_save_extra=force_save_extra
         )
 
         if self.use_critic:
@@ -1092,6 +1105,22 @@ class RayPPOTrainer:
                     return True
                 
         return False
+    
+    def _update_best_hard_pass_at(self, val_metrics, pass_at_k: int) -> bool:
+        """
+        Save checkpoint if the validation metrics are the best.
+
+        Args:
+            val_metrics: The validation metrics.
+            pass_at_k: The pass@k to use for determining whether to save the checkpoint.
+        """
+        for k in val_metrics.keys():
+            if k.endswith(f"reward-hard-subset-perc-90/pass@{pass_at_k}/mean"): # TODO: change to 10!!
+                if val_metrics[k] > self.best_dev_hard_pass_at_k[pass_at_k]:
+                    self.best_dev_hard_pass_at_k[pass_at_k] = val_metrics[k]
+                    return True
+                
+        return False
 
     def fit(self):
         """
@@ -1121,6 +1150,11 @@ class RayPPOTrainer:
             64: 0,
         }
 
+        self.best_dev_hard_pass_at_k = {
+            1: 0,
+            64: 0,
+        }
+
         # load checkpoint before doing anything
         self._load_checkpoint()
 
@@ -1135,8 +1169,14 @@ class RayPPOTrainer:
             self._update_best_pass_at(val_metrics, 1)
             self._update_best_pass_at(val_metrics, 64)
 
+            # Initialize the best hard validation metrics for pass@k before training
+            self._update_best_hard_pass_at(val_metrics, 1)
+            self._update_best_hard_pass_at(val_metrics, 64)
+
             val_metrics["best/pass@1"] = self.best_dev_pass_at_k[1]
             val_metrics["best/pass@64"] = self.best_dev_pass_at_k[64]
+            val_metrics["best/hard_pass@1"] = self.best_dev_hard_pass_at_k[1]
+            val_metrics["best/hard_pass@64"] = self.best_dev_hard_pass_at_k[64]
 
             # hard dataset validation
             if self.config.trainer.val_hard_subset:
