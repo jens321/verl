@@ -177,7 +177,7 @@ class FSDPCheckpointManager(BaseCheckpointManager):
         # wait for everyone to load checkpoints
         torch.distributed.barrier()
 
-    def save_checkpoint(self, local_path: str, hdfs_path: str = None, global_step: int = 0, max_ckpt_to_keep=None):
+    def save_checkpoint(self, local_path: str, hdfs_path: str = None, global_step: int = 0, max_ckpt_to_keep=None, force_save_optim: bool = False, force_save_extra: bool = False):
         """
         Save an FSDP checkpoint for this rank.
 
@@ -219,7 +219,7 @@ class FSDPCheckpointManager(BaseCheckpointManager):
         # check if the checkpoint_save_contents is valid
         if self.should_save_model:
             assert self.model is not None, "model must be provided when checkpoint_contents.save includes ['model']"
-        if self.should_save_optimizer:
+        if self.should_save_optimizer or force_save_optim:
             assert self.optimizer is not None, (
                 "optimizer must be provided when checkpoint_contents.save includes ['optimizer']"
             )
@@ -239,12 +239,12 @@ class FSDPCheckpointManager(BaseCheckpointManager):
                     torch.save(model_state_dict, model_path)
                     log_with_rank(f"Saved model to {os.path.abspath(model_path)}", rank=self.rank, logger=logger)
 
-                if self.should_save_optimizer:
+                if self.should_save_optimizer or force_save_optim:
                     optimizer_state_dict = self.optimizer.state_dict()
                     torch.save(optimizer_state_dict, optim_path)
                     log_with_rank(f"Saved optim to {os.path.abspath(optim_path)}", rank=self.rank, logger=logger)
 
-                if self.should_save_extra:
+                if self.should_save_extra or force_save_extra:
                     lr_scheduler_state_dict = self.lr_scheduler.state_dict() if self.lr_scheduler is not None else None
                     extra_state_dict = {
                         "lr_scheduler": lr_scheduler_state_dict,
@@ -364,4 +364,5 @@ class FSDPCheckpointManager(BaseCheckpointManager):
             # wait for rank0 to dump hf_model to local
             torch.distributed.barrier()
 
-        self.previous_saved_paths.append(local_path)
+        if "global_step_" in local_path:
+            self.previous_saved_paths.append(local_path)
