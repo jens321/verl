@@ -8,6 +8,9 @@ SAVE_FREQ=-1
 RESUME_MODE=disable
 RESUME_FROM_PATH=''
 USE_KL_LOSS=True
+SAVE_BEST_PASS_AT_1=False
+SAVE_BEST_PASS_AT_64=False
+CHECKPOINT_SAVE_CONTENTS='["model"]'
 
 # GRPO specific
 LOSS_AGG_MODE="token-mean"
@@ -29,6 +32,9 @@ for SEED in 44 45; do
     echo "RESUME_MODE: ${RESUME_MODE}"
     echo "RESUME_FROM_PATH: ${RESUME_FROM_PATH}"
     echo "KL_LOSS_COEF: ${KL_LOSS_COEF}"
+    echo "SAVE_BEST_PASS_AT_1: ${SAVE_BEST_PASS_AT_1}"
+    echo "SAVE_BEST_PASS_AT_64: ${SAVE_BEST_PASS_AT_64}"
+    echo "CHECKPOINT_SAVE_CONTENTS: ${CHECKPOINT_SAVE_CONTENTS}"
     sbatch --job-name=train_${ALGORITHM}_MATH_unlikely_beta_${BETA} scripts/train_unlikely.slurm \
         ${MODEL_PATH} \
         ${SEED} \
@@ -44,5 +50,8 @@ for SEED in 44 45; do
         "${RESUME_FROM_PATH}" \
         ${KL_LOSS_COEF} \
         ${TASK} \
+        ${SAVE_BEST_PASS_AT_1} \
+        ${SAVE_BEST_PASS_AT_64} \
+        ${CHECKPOINT_SAVE_CONTENTS}
     echo "--------------------------------"
 done

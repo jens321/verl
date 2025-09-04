@@ -1066,6 +1066,22 @@ class RayPPOTrainer:
         # Return unchanged batch and empty metrics if IS is disabled
         return batch, {}
 
+    def _update_best_pass_at(self, val_metrics, pass_at_k: int) -> bool:
+        """
+        Save checkpoint if the validation metrics are the best.
+
+        Args:
+            val_metrics: The validation metrics.
+            pass_at_k: The pass@k to use for determining whether to save the checkpoint.
+        """
+        for k in val_metrics.keys():
+            if k.endswith(f"reward/pass@{pass_at_k}/mean"):
+                if val_metrics[k] > self.best_dev_pass_at_k[pass_at_k]:
+                    self.best_dev_pass_at_k[pass_at_k] = val_metrics[k]
+                    return True
+                
+        return False
+
     def fit(self):
         """
         The training loop of PPO.
@@ -1089,6 +1105,11 @@ class RayPPOTrainer:
         self.highest_train_pass_at_k = 0
         self.pass_at_k_patience = 0
 
+        self.best_dev_pass_at_k = {
+            1: 0,
+            64: 0,
+        }
+
         # load checkpoint before doing anything
         self._load_checkpoint()
 
@@ -1098,6 +1119,10 @@ class RayPPOTrainer:
             # full dataset validation
             val_metrics = self._validate(self.val_dataloader, self.config.actor_rollout_ref.rollout.val_kwargs)
             assert val_metrics, f"{val_metrics=}"
+
+            # Initialize the best validation metrics for pass@k before training
+            self._update_best_pass_at(val_metrics, 1)
+            self._update_best_pass_at(val_metrics, 64)
 
             # hard dataset validation
             if self.config.trainer.val_hard_subset:

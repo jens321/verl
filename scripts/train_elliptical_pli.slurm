@@ -45,6 +45,9 @@ TASK=${30}
 TURN_OFF_AT_GLOBAL_STEPS=${31}
 PPO_EPOCHS=${32}
 TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT=${33}
+SAVE_BEST_PASS_AT_1=${34}
+SAVE_BEST_PASS_AT_64=${35}
+CHECKPOINT_SAVE_CONTENTS=${36}
 
 math_train_path=$HOME/data/${TASK}/train.parquet
 math_test_path=$HOME/data/${TASK}/dev.parquet
@@ -63,6 +66,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     data.truncation='error' \
     data.task=$TASK \
     actor_rollout_ref.model.path="$MODEL_PATH" \
+    actor_rollout_ref.actor.checkpoint.save_contents=$CHECKPOINT_SAVE_CONTENTS \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.ppo_mini_batch_size=256 \
@@ -121,7 +125,9 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.total_epochs=100 \
     trainer.seed=$SEED \
     trainer.resume_mode=$RESUME_MODE \
-    trainer.resume_from_path=$RESUME_FROM_PATH
+    trainer.resume_from_path=$RESUME_FROM_PATH \
+    trainer.save_best_pass_at_1=$SAVE_BEST_PASS_AT_1 \
+    trainer.save_best_pass_at_64=$SAVE_BEST_PASS_AT_64
 
 exit 0
 

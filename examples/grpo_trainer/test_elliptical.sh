@@ -17,6 +17,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  data.truncation='error' \
  data.task=math \
  data.drop_samples_with_no_adv=False \
+ actor_rollout_ref.actor.checkpoint.save_contents='["model"]' \
  actor_rollout_ref.model.path=Qwen/Qwen2.5-0.5B-Instruct \
  actor_rollout_ref.actor.optim.lr=1e-6 \
  actor_rollout_ref.model.use_remove_padding=True \
@@ -55,8 +56,10 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_none_correct=False \
  reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_some_correct=False \
  reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_all_correct=False \
- reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_rollout_incorrect=True \
+ reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_rollout_incorrect=False \
  algorithm.use_kl_in_reward=False \
+ trainer.save_best_pass_at_1=False \
+ trainer.save_best_pass_at_64=False \
  trainer.pass_at_k_freq=-1 \
  trainer.train_random_subset_size=4 \
  trainer.val_hard_subset=False \

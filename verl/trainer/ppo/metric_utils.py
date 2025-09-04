@@ -533,6 +533,7 @@ def process_validation_metrics(
                 metric = {}
                 n_resps = len(var_vals)
                 metric[f"mean@{n_resps}"] = np.mean(var_vals)
+                metric["pass@1/mean"] = comb_estimator(n_resps, np.sum(var_vals), 1)
 
                 if n_resps > 1:
                     metric[f"std@{n_resps}"] = np.std(var_vals)

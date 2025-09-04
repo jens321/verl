@@ -24,6 +24,9 @@ RESUME_FROM_PATH=''
 USE_KL_LOSS=True
 TURN_OFF_AT_GLOBAL_STEPS=-1
 PPO_EPOCHS=1
+SAVE_BEST_PASS_AT_1=False
+SAVE_BEST_PASS_AT_64=False
+CHECKPOINT_SAVE_CONTENTS='["model"]'
 
 if [ ${ALGORITHM} == "dr_grpo" ]; then
     LOSS_AGG_MODE="seq-mean-token-sum-norm"
@@ -84,6 +87,9 @@ for SEED in {41..45}; do
         echo "TURN_OFF_AT_GLOBAL_STEPS: ${TURN_OFF_AT_GLOBAL_STEPS}"
         echo "PPO_EPOCHS: ${PPO_EPOCHS}"
         echo "TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT: ${TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT}"
+        echo "SAVE_BEST_PASS_AT_1: ${SAVE_BEST_PASS_AT_1}"
+        echo "SAVE_BEST_PASS_AT_64: ${SAVE_BEST_PASS_AT_64}"
+        echo "CHECKPOINT_SAVE_CONTENTS: ${CHECKPOINT_SAVE_CONTENTS}"
         sbatch --job-name=train_${ALGORITHM}_MATH_elliptical_${REWARD_MODEL_ENABLE}_beta_${BETA}_sparse_${SPARSE_DIM} scripts/train_elliptical_${BACKEND}.slurm \
             ${MODEL_PATH} \
             ${REWARD_MODEL_ENABLE} \
@@ -117,7 +123,10 @@ for SEED in {41..45}; do
             ${TASK} \
             ${TURN_OFF_AT_GLOBAL_STEPS} \
             ${PPO_EPOCHS} \
-            ${TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT}
+            ${TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT} \
+            ${SAVE_BEST_PASS_AT_1} \
+            ${SAVE_BEST_PASS_AT_64} \
+            ${CHECKPOINT_SAVE_CONTENTS}
         echo "--------------------------------"
     done
 done
