@@ -1135,6 +1135,9 @@ class RayPPOTrainer:
             self._update_best_pass_at(val_metrics, 1)
             self._update_best_pass_at(val_metrics, 64)
 
+            val_metrics["best/pass@1"] = self.best_dev_pass_at_k[1]
+            val_metrics["best/pass@64"] = self.best_dev_pass_at_k[64]
+
             # hard dataset validation
             if self.config.trainer.val_hard_subset:
                 hard_val_metrics = self._validate(self.hard_val_dataloader, self.config.actor_rollout_ref.rollout.hard_val_kwargs, hard_validate=True)
