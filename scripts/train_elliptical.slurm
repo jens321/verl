@@ -120,7 +120,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
     trainer.project_name='llm-exploration-rl-training' \
-    trainer.experiment_name="${MODEL_PATH}_${ALGORITHM}_elliptical_${ELLIPTICAL_ENABLE}_beta_${BETA}_seed_${SEED}_sparse_${SPARSE_DIM}_reward_type_${REWARD_TYPE}_rollouts_${ROLLOUTS}_randomize_sparse_matrix_${RANDOMIZE_SPARSE_MATRIX}_turn_off_elliptical_if_none_correct_${TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT}_turn_off_elliptical_if_some_correct_${TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT}_turn_off_elliptical_if_all_correct_${TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT}_train_val_n_${TRAIN_VAL_N}_turn_off_at_highest_pass_at_k_${TURN_OFF_AT_HIGHEST_PASS_AT_K}_pass_at_k_freq_${PASS_AT_K_FREQ}_train_random_subset_size_${TRAIN_RANDOM_SUBSET_SIZE}_alpha_${ALPHA}" \
+    trainer.experiment_name="${TASK}_elliptical_seed_${SEED}" \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
     trainer.save_freq=$SAVE_FREQ \
@@ -136,5 +136,3 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.max_actor_ckpt_to_keep=$MAX_ACTOR_CKPT_TO_KEEP
 
 exit 0
-
-# "${MODEL_PATH}_${ALGORITHM}_elliptical_${ELLIPTICAL_ENABLE}_beta_${BETA}_seed_${SEED}_sparse_${SPARSE_DIM}_reward_type_${REWARD_TYPE}_rollouts_${ROLLOUTS}_randomize_sparse_matrix_${RANDOMIZE_SPARSE_MATRIX}_turn_off_elliptical_if_none_correct_${TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT}_turn_off_elliptical_if_some_correct_${TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT}_turn_off_elliptical_if_all_correct_${TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT}_train_val_n_${TRAIN_VAL_N}_turn_off_at_highest_pass_at_k_${TURN_OFF_AT_HIGHEST_PASS_AT_K}_pass_at_k_freq_${PASS_AT_K_FREQ}_train_random_subset_size_${TRAIN_RANDOM_SUBSET_SIZE}_alpha_${ALPHA}"
