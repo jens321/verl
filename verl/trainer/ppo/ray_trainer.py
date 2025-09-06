@@ -315,15 +315,16 @@ class RayPPOTrainer:
 
         self.drop_samples_with_no_adv = config.data.drop_samples_with_no_adv
 
-        self.prompt_idx_to_gpt_4_pass_at_1 = dict()
-        path = os.path.join(DATA_DIR, self.config.data.task, "gpt-4o-mini")
-        for file in tqdm(os.listdir(path), desc="Loading GPT-4o-mini pass@1 ..."):
-            if file.endswith(".json"):
-                with open(os.path.join(path, file), "r") as f:
-                    data = json.load(f)
-                prompt_idx = data[0]['prompt_idx']  
-                results = [d['strict_correct'] if 'strict_correct' in d else d['correct'] for d in data]
-                self.prompt_idx_to_gpt_4_pass_at_1[prompt_idx] = sum(results) / len(results)
+        if config.data.task in ['math', 'gsm8k']:
+            self.prompt_idx_to_gpt_4_pass_at_1 = dict()
+            path = os.path.join(DATA_DIR, self.config.data.task, "gpt-4o-mini")
+            for file in tqdm(os.listdir(path), desc="Loading GPT-4o-mini pass@1 ..."):
+                if file.endswith(".json"):
+                    with open(os.path.join(path, file), "r") as f:
+                        data = json.load(f)
+                    prompt_idx = data[0]['prompt_idx']  
+                    results = [d['strict_correct'] if 'strict_correct' in d else d['correct'] for d in data]
+                    self.prompt_idx_to_gpt_4_pass_at_1[prompt_idx] = sum(results) / len(results)
 
         self.hybrid_engine = config.actor_rollout_ref.hybrid_engine
         assert self.hybrid_engine, "Currently, only support hybrid engine"
