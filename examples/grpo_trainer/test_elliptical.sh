@@ -1,7 +1,7 @@
 set -x
 
-math_train_path=$HOME/data/math/train.parquet
-math_test_path=$HOME/data/math/dev.parquet
+math_train_path=$HOME/data/countdown-4/train.parquet
+math_test_path=$HOME/data/countdown-4/dev.parquet
 
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
@@ -10,15 +10,15 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  algorithm.adv_estimator=grpo \
  data.train_files="$train_files" \
  data.val_files="$test_files" \
- data.train_batch_size=32 \
+ data.train_batch_size=256 \
  data.max_prompt_length=1024 \
- data.max_response_length=256 \
+ data.max_response_length=1024 \
  data.filter_overlong_prompts=True \
  data.truncation='error' \
- data.task=math \
+ data.task=countdown \
  data.drop_samples_with_no_adv=False \
  actor_rollout_ref.actor.checkpoint.save_contents='["model"]' \
- actor_rollout_ref.model.path=Qwen/Qwen2.5-0.5B-Instruct \
+ actor_rollout_ref.model.path=Qwen/Qwen2.5-7B-Instruct \
  actor_rollout_ref.actor.optim.lr=1e-6 \
  actor_rollout_ref.model.use_remove_padding=True \
  actor_rollout_ref.actor.ppo_mini_batch_size=8 \
@@ -34,12 +34,12 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  actor_rollout_ref.rollout.name=vllm \
  actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
  actor_rollout_ref.rollout.n=2 \
- actor_rollout_ref.rollout.val_kwargs.n=4 \
+ actor_rollout_ref.rollout.val_kwargs.n=8 \
  actor_rollout_ref.rollout.train_val_kwargs.n=16 \
  actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=4 \
  actor_rollout_ref.ref.fsdp_config.param_offload=True \
  reward_model.enable=True \
- reward_model.model.path=Qwen/Qwen2.5-0.5B-Instruct \
+ reward_model.model.path=Qwen/Qwen2.5-7B-Instruct \
  reward_model.model.use_remove_padding=False \
  reward_model.model.fsdp_config.param_offload=True \
  reward_model.micro_batch_size_per_gpu=32 \
@@ -60,15 +60,15 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  algorithm.use_kl_in_reward=False \
  trainer.save_best_pass_at_1=False \
  trainer.save_best_pass_at_64=False \
- trainer.save_best_hard_pass_at_1=True \
- trainer.save_best_hard_pass_at_64=True \
+ trainer.save_best_hard_pass_at_1=False \
+ trainer.save_best_hard_pass_at_64=False \
  trainer.pass_at_k_freq=-1 \
  trainer.train_random_subset_size=4 \
  trainer.val_hard_subset=False \
  trainer.critic_warmup=0 \
  trainer.logger='["console"]' \
  trainer.val_before_train=True \
- trainer.n_gpus_per_node=1 \
+ trainer.n_gpus_per_node=4 \
  trainer.nnodes=1 \
  trainer.save_freq=1 \
  trainer.test_freq=1 \
