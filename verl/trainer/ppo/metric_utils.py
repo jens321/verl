@@ -119,7 +119,7 @@ def _compute_three_case_stats(data: DataProto, extrinsic_reward_tensor: torch.Te
         "all_rollouts_correct_frac": all_rollouts_correct / len(visited_uids),
     }
 
-def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: bool = False) -> dict[str, Any]:
+def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: bool = False, unlikely: bool = False) -> dict[str, Any]:
     """
     Computes various metrics from a batch of data for PPO training.
 
@@ -130,6 +130,8 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
     Args:
         batch: A DataProto object containing batch data with token-level scores, rewards, advantages, etc.
         use_critic: Whether to include critic-specific metrics. Defaults to True.
+        elliptical: Whether to include elliptical-specific metrics. Defaults to False.
+        unlikely: Whether to include unlikely-specific metrics. Defaults to False.
 
     Returns:
         A dictionary of metrics including:
@@ -154,6 +156,10 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
         sequence_raw_bonuses = batch.non_tensor_batch["raw_bonuses"].sum(-1)
 
         three_case_stats = _compute_three_case_stats(batch, batch.non_tensor_batch["extrinsic_reward"])
+
+    if unlikely:
+        sequence_extrinsic_reward = batch.non_tensor_batch["extrinsic_reward"].sum(-1)
+        sequence_unlikely_scaled_extrinsic_reward = batch.non_tensor_batch["unlikely_scaled_extrinsic_reward"].sum(-1)
 
     advantages = batch.batch["advantages"]
     returns = batch.batch["returns"]
@@ -269,6 +275,22 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
                 "critic/total_reward/std": np.std(sequence_total_reward).item(),
             }
             if elliptical
+            else {}
+        ),
+        **(
+            {
+                # extrinsic_reward
+                "critic/extrinsic_reward/mean": np.mean(sequence_extrinsic_reward).item(),
+                "critic/extrinsic_reward/max": np.max(sequence_extrinsic_reward).item(),
+                "critic/extrinsic_reward/min": np.min(sequence_extrinsic_reward).item(),
+                "critic/extrinsic_reward/std": np.std(sequence_extrinsic_reward).item(),
+                # unlikely_scaled_extrinsic_reward
+                "critic/unlikely_scaled_extrinsic_reward/mean": np.mean(sequence_unlikely_scaled_extrinsic_reward).item(),
+                "critic/unlikely_scaled_extrinsic_reward/max": np.max(sequence_unlikely_scaled_extrinsic_reward).item(),
+                "critic/unlikely_scaled_extrinsic_reward/min": np.min(sequence_unlikely_scaled_extrinsic_reward).item(),
+                "critic/unlikely_scaled_extrinsic_reward/std": np.std(sequence_unlikely_scaled_extrinsic_reward).item(),
+            }
+            if unlikely
             else {}
         ),
         # response length

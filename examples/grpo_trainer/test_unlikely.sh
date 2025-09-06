@@ -57,7 +57,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  trainer.critic_warmup=0 \
  trainer.logger='["console"]' \
  trainer.val_before_train=False \
- trainer.n_gpus_per_node=2 \
+ trainer.n_gpus_per_node=1 \
  trainer.nnodes=1 \
  trainer.save_freq=-1 \
  trainer.test_freq=-1 \
