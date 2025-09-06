@@ -386,7 +386,8 @@ class RayPPOTrainer:
         if train_sampler is None:
             train_sampler = create_rl_sampler(self.config.data, self.train_dataset)
         if collate_fn is None:
-            from verl.utils.dataset.rl_dataset import collate_fn as default_collate_fn
+            from verl.utils.dataset.rl_dataset import \
+                collate_fn as default_collate_fn
 
             collate_fn = default_collate_fn
 
@@ -1116,7 +1117,7 @@ class RayPPOTrainer:
             pass_at_k: The pass@k to use for determining whether to save the checkpoint.
         """
         for k in val_metrics.keys():
-            if k.endswith(f"reward-hard-subset-perc-90/pass@{pass_at_k}/mean"): # TODO: change to 10!!
+            if k.endswith(f"reward-hard-subset-perc-10/pass@{pass_at_k}/mean"):
                 if val_metrics[k] > self.best_dev_hard_pass_at_k[pass_at_k]:
                     self.best_dev_hard_pass_at_k[pass_at_k] = val_metrics[k]
                     return True
