@@ -1,4 +1,4 @@
-TASK=math
+TASK=math # gsm8k, countdown-4
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 SPARSE_DIM=32
