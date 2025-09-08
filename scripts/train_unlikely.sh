@@ -1,4 +1,4 @@
-TASK=math
+TASK=countdown-4
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 BETA=0.25
@@ -20,7 +20,7 @@ LOSS_AGG_MODE="token-mean"
 KL_LOSS_COEF=0.1
 NORM_ADV_BY_STD_IN_GRPO=True
 
-for SEED in 42 44; do
+for SEED in 41 43; do
     echo "Running job on ${TASK} with the following parameters:"
     echo "ALGORITHM: ${ALGORITHM}"
     echo "MODEL_PATH: ${MODEL_PATH}"
@@ -41,7 +41,7 @@ for SEED in 42 44; do
     echo "SAVE_BEST_HARD_PASS_AT_1: ${SAVE_BEST_HARD_PASS_AT_1}"
     echo "SAVE_BEST_HARD_PASS_AT_64: ${SAVE_BEST_HARD_PASS_AT_64}"
     echo "MAX_ACTOR_CKPT_TO_KEEP: ${MAX_ACTOR_CKPT_TO_KEEP}"
-    sbatch --job-name=MATH_unlikely_seed_${SEED} scripts/train_unlikely.slurm \
+    sbatch --job-name=${TASK}_unlikely_seed_${SEED} scripts/train_unlikely.slurm \
         ${MODEL_PATH} \
         ${SEED} \
         ${BETA} \

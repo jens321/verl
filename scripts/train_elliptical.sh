@@ -1,9 +1,9 @@
-TASK=math # gsm8k, countdown-4
+TASK=countdown-4 # gsm8k, countdown-4
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 SPARSE_DIM=32
-BETA=0.01
-ROLLOUTS=8
+BETA=0.05
+ROLLOUTS=32
 REWARD_TYPE=leverage
 RANDOMIZE_SPARSE_MATRIX=True
 TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT=False
@@ -17,21 +17,23 @@ PERSIST_COVARIANCE=False
 TRAIN_VAL_N=$((2 * ${ROLLOUTS})) # always double the rollout size since we're estimating pass@k where k is the rollout size
 ALPHA=1.0
 TEST_FREQ=20
-SAVE_FREQ=20
+SAVE_FREQ=-1
 RESUME_MODE=disable
 RESUME_FROM_PATH=''
 USE_KL_LOSS=True
 TURN_OFF_AT_GLOBAL_STEPS=-1
 PPO_EPOCHS=2
-SAVE_BEST_PASS_AT_1=True
-SAVE_BEST_HARD_PASS_AT_1=True
-SAVE_BEST_PASS_AT_64=True
-SAVE_BEST_HARD_PASS_AT_64=True
+SAVE_BEST_PASS_AT_1=False
+SAVE_BEST_HARD_PASS_AT_1=False
+SAVE_BEST_PASS_AT_64=False
+SAVE_BEST_HARD_PASS_AT_64=False
 CHECKPOINT_SAVE_CONTENTS='["model"]'
 MAX_ACTOR_CKPT_TO_KEEP=1
 REWARD_MODEL_ENABLE=True
 ELLIPTICAL_ENABLE=True
 REWARD_MANAGER=elliptical
+TRAIN_BATCH_SIZE=8 # default: 1024
+PPO_MINI_BATCH_SIZE=8 # default: 256
 
 if [ ${ALGORITHM} == "dr_grpo" ]; then
     LOSS_AGG_MODE="seq-mean-token-sum-norm"
@@ -49,7 +51,7 @@ else
     PASS_AT_K_FREQ=-1
 fi
 
-for SEED in 42 44 45; do
+for SEED in 41 43; do
     echo "Running job on ${TASK} with the following parameters:"
     echo "ALGORITHM: ${ALGORITHM}"
     echo "MODEL_PATH: ${MODEL_PATH}"
@@ -89,6 +91,8 @@ for SEED in 42 44 45; do
     echo "SAVE_BEST_HARD_PASS_AT_1: ${SAVE_BEST_HARD_PASS_AT_1}"
     echo "SAVE_BEST_HARD_PASS_AT_64: ${SAVE_BEST_HARD_PASS_AT_64}"
     echo "MAX_ACTOR_CKPT_TO_KEEP: ${MAX_ACTOR_CKPT_TO_KEEP}"
+    echo "TRAIN_BATCH_SIZE: ${TRAIN_BATCH_SIZE}"
+    echo "PPO_MINI_BATCH_SIZE: ${PPO_MINI_BATCH_SIZE}"
     sbatch --job-name=${TASK}_elliptical_seed_${SEED} scripts/train_elliptical.slurm \
         ${MODEL_PATH} \
         ${REWARD_MODEL_ENABLE} \
@@ -128,6 +132,8 @@ for SEED in 42 44 45; do
         ${CHECKPOINT_SAVE_CONTENTS} \
         ${SAVE_BEST_HARD_PASS_AT_1} \
         ${SAVE_BEST_HARD_PASS_AT_64} \
-        ${MAX_ACTOR_CKPT_TO_KEEP}
+        ${MAX_ACTOR_CKPT_TO_KEEP} \
+        ${TRAIN_BATCH_SIZE} \
+        ${PPO_MINI_BATCH_SIZE}
     echo "--------------------------------"
 done
