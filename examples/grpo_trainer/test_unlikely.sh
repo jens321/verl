@@ -1,7 +1,7 @@
 set -x
 
-math_train_path=$HOME/data/math/train.parquet
-math_test_path=$HOME/data/math/dev.parquet
+math_train_path=$HOME/data/countdown-4/train.parquet
+math_test_path=$HOME/data/countdown-4/dev.parquet
 
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
@@ -19,8 +19,8 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  data.max_response_length=256 \
  data.filter_overlong_prompts=True \
  data.truncation='error' \
- data.task=math \
- data.drop_samples_with_no_adv=True \
+ data.task=countdown-4 \
+ data.drop_samples_with_no_adv=False \
  +data.gen_batch_size=16 \
  actor_rollout_ref.model.path=Qwen/Qwen2.5-0.5B-Instruct \
  actor_rollout_ref.actor.optim.lr=1e-6 \
@@ -39,7 +39,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
  actor_rollout_ref.rollout.name=vllm \
  actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
- actor_rollout_ref.rollout.n=32 \
+ actor_rollout_ref.rollout.n=$ROLLOUTS \
  actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=4 \
  actor_rollout_ref.ref.fsdp_config.param_offload=True \
  reward_model.enable=False \
@@ -50,6 +50,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  reward_model.model.input_tokenizer=null \
  reward_model.reward_manager=unlikely \
  reward_model.reward_kwargs.unlikely.beta=0.25 \
+ reward_model.reward_kwargs.unlikely.turn_off_unlikely_if_all_correct=True \
  algorithm.use_kl_in_reward=False \
  trainer.pass_at_k_freq=-1 \
  trainer.train_random_subset_size=4 \

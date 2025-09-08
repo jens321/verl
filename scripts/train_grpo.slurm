@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=train_grpo_MATH
+#SBATCH --job-name=train_grpo_default
 #SBATCH --output=slurm_output/%x-%j.out
 #SBATCH -N 1 #nodes
 #SBATCH -n 1 #tasks
 #SBATCH --cpus-per-task=90
 #SBATCH --mem=900G
-#SBATCH --time=00-23:59:59    # Run for 23:59:59 hours
+#SBATCH --time=01-23:59:59    # Run for 23:59:59 hours
 #SBATCH --gres=gpu:8
 #SBATCH --partition=pli-c
 #SBATCH --account=pli
@@ -32,6 +32,8 @@ CHECKPOINT_SAVE_CONTENTS=${17}
 SAVE_BEST_HARD_PASS_AT_1=${18}
 SAVE_BEST_HARD_PASS_AT_64=${19}
 MAX_ACTOR_CKPT_TO_KEEP=${20}
+TRAIN_BATCH_SIZE=${21}
+PPO_MINI_BATCH_SIZE=${22}
 
 math_train_path=$HOME/data/${TASK}/train.parquet
 math_test_path=$HOME/data/${TASK}/dev.parquet
@@ -43,7 +45,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     algorithm.adv_estimator=grpo \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
-    data.train_batch_size=1024 \
+    data.train_batch_size=$TRAIN_BATCH_SIZE \
     data.max_prompt_length=1024 \
     data.max_response_length=1024 \
     data.filter_overlong_prompts=True \
@@ -53,7 +55,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     actor_rollout_ref.actor.checkpoint.save_contents=$CHECKPOINT_SAVE_CONTENTS \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
-    actor_rollout_ref.actor.ppo_mini_batch_size=256 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=$PPO_MINI_BATCH_SIZE \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=16 \
     actor_rollout_ref.actor.kl_loss_coef=$KL_LOSS_COEF \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \

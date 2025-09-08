@@ -32,12 +32,29 @@ CHECKPOINT_SAVE_CONTENTS=${17}
 SAVE_BEST_HARD_PASS_AT_1=${18}
 SAVE_BEST_HARD_PASS_AT_64=${19}
 MAX_ACTOR_CKPT_TO_KEEP=${20}
+TRAIN_BATCH_SIZE=${21}
+PPO_MINI_BATCH_SIZE=${22}
+DROP_SAMPLES_WITH_NO_ADV=${23}
+PPO_EPOCHS=${24}
+GEN_BATCH_SIZE=${25}
+GRAD_SKIP_THRESH=${26}
+TURN_OFF_UNLIKELY_IF_ALL_CORRECT=${27}
+
+EXTRA_GEN_ARG=""
+if [ "$GEN_BATCH_SIZE" != "null" ]; then
+  EXTRA_GEN_ARG="+data.gen_batch_size=${GEN_BATCH_SIZE}"
+fi
+
+EXTRA_GRAD_SKIP_THRESH_ARG=""
+if [ "$GRAD_SKIP_THRESH" != "null" ]; then
+  EXTRA_GRAD_SKIP_THRESH_ARG="actor_rollout_ref.actor.grad_skip_thresh=${GRAD_SKIP_THRESH}"
+fi
 
 # NOTE: unlikely repo sets rollout.n = 1, while we set it to 32
 # therefore, we have to scale down the batch sizes that internally get upscaled
 # by rollout.n
-PPO_MINI_BATCH_SIZE=$((256 / ${ROLLOUTS}))
-TRAIN_BATCH_SIZE=$((256 / ${ROLLOUTS}))
+# PPO_MINI_BATCH_SIZE=$((256 / ${ROLLOUTS}))
+# TRAIN_BATCH_SIZE=$((256 / ${ROLLOUTS}))
 
 math_train_path=$HOME/data/${TASK}/train.parquet
 math_test_path=$HOME/data/${TASK}/dev.parquet
@@ -55,8 +72,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.task=$TASK \
-    data.drop_samples_with_no_adv=True \
-    +data.gen_batch_size=16 \
+    data.drop_samples_with_no_adv=$DROP_SAMPLES_WITH_NO_ADV $EXTRA_GEN_ARG \
     actor_rollout_ref.model.path="$MODEL_PATH" \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.actor.checkpoint.save_contents=$CHECKPOINT_SAVE_CONTENTS \
@@ -66,8 +82,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     actor_rollout_ref.actor.kl_loss_coef=$KL_LOSS_COEF \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
-    actor_rollout_ref.actor.ppo_epochs=2 \
-    actor_rollout_ref.actor.grad_skip_thresh=20.0 \
+    actor_rollout_ref.actor.ppo_epochs=$PPO_EPOCHS $EXTRA_GRAD_SKIP_THRESH_ARG \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.actor.fsdp_config.param_offload=False \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \
@@ -84,6 +99,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     reward_model.model.input_tokenizer=null \
     reward_model.reward_manager=unlikely \
     reward_model.reward_kwargs.unlikely.beta=$BETA \
+    reward_model.reward_kwargs.unlikely.turn_off_unlikely_if_all_correct=$TURN_OFF_UNLIKELY_IF_ALL_CORRECT \
     actor_rollout_ref.actor.loss_agg_mode=$LOSS_AGG_MODE \
     actor_rollout_ref.actor.use_kl_loss=$USE_KL_LOSS \
     algorithm.norm_adv_by_std_in_grpo=$NORM_ADV_BY_STD_IN_GRPO \
@@ -92,7 +108,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
     trainer.project_name='llm-exploration-rl-training' \
-    trainer.experiment_name="${TASK}_unlikely_seed_${SEED}" \
+    trainer.experiment_name="${TASK}_unlikely_seed_${SEED}_kl_${KL_LOSS_COEF}" \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
     trainer.save_freq=$SAVE_FREQ \

@@ -1,4 +1,4 @@
-TASK=countdown-4
+TASK=math
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 ROLLOUTS=8
@@ -7,13 +7,15 @@ SAVE_FREQ=20
 RESUME_MODE=disable
 RESUME_FROM_PATH=''
 USE_KL_LOSS=True
-PPO_EPOCHS=2
+PPO_EPOCHS=1
 SAVE_BEST_PASS_AT_1=True
 SAVE_BEST_HARD_PASS_AT_1=True
 SAVE_BEST_PASS_AT_64=True
 SAVE_BEST_HARD_PASS_AT_64=True
 CHECKPOINT_SAVE_CONTENTS='["model"]'
 MAX_ACTOR_CKPT_TO_KEEP=1
+TRAIN_BATCH_SIZE=1024
+PPO_MINI_BATCH_SIZE=256
 
 if [ ${ALGORITHM} == "dr_grpo" ]; then
     LOSS_AGG_MODE="seq-mean-token-sum-norm"
@@ -46,6 +48,8 @@ for SEED in 41 43; do
     echo "SAVE_BEST_HARD_PASS_AT_1: ${SAVE_BEST_HARD_PASS_AT_1}"
     echo "SAVE_BEST_HARD_PASS_AT_64: ${SAVE_BEST_HARD_PASS_AT_64}"
     echo "MAX_ACTOR_CKPT_TO_KEEP: ${MAX_ACTOR_CKPT_TO_KEEP}"
+    echo "TRAIN_BATCH_SIZE: ${TRAIN_BATCH_SIZE}"
+    echo "PPO_MINI_BATCH_SIZE: ${PPO_MINI_BATCH_SIZE}"
     sbatch --job-name=${TASK}_GRPO_seed_${SEED}_kl_${KL_LOSS_COEF}_ppo_epochs_${PPO_EPOCHS} scripts/train_grpo.slurm \
         ${MODEL_PATH} \
         ${SEED} \
@@ -66,6 +70,8 @@ for SEED in 41 43; do
         ${CHECKPOINT_SAVE_CONTENTS} \
         ${SAVE_BEST_HARD_PASS_AT_1} \
         ${SAVE_BEST_HARD_PASS_AT_64} \
-        ${MAX_ACTOR_CKPT_TO_KEEP}
+        ${MAX_ACTOR_CKPT_TO_KEEP} \
+        ${TRAIN_BATCH_SIZE} \
+        ${PPO_MINI_BATCH_SIZE}
     echo "--------------------------------"
 done
