@@ -32,7 +32,8 @@ class UnlikelyRewardManager(NaiveRewardManager):
             num_examine, 
             compute_score=None, 
             reward_fn_key="data_source",
-            beta: float = 0.25
+            beta: float = 0.25,
+            turn_off_unlikely_if_all_correct: bool = False
         ) -> None:
         """
         Initialize the UnlikelyRewardManager instance.
@@ -46,6 +47,7 @@ class UnlikelyRewardManager(NaiveRewardManager):
         """
         super().__init__(tokenizer, num_examine, compute_score, reward_fn_key)
         self.beta = beta
+        self.turn_off_unlikely_if_all_correct = turn_off_unlikely_if_all_correct
 
     def __call__(self, data: DataProto, return_dict=False):
         reward_extra_info = defaultdict(list)
@@ -75,6 +77,9 @@ class UnlikelyRewardManager(NaiveRewardManager):
             group_indices = torch.tensor(indices, device=unlikely_reward_tensor.device)
             group_rewards = unlikely_reward_tensor[group_indices]
             group_old_log_probs = old_log_probs[group_indices]
+
+            if self.turn_off_unlikely_if_all_correct and group_rewards.sum() == len(group_indices):
+                continue
             
             # Apply rank penalty
             group_ranks = torch.argsort(torch.argsort(group_old_log_probs))
