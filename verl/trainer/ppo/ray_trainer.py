@@ -939,16 +939,20 @@ class RayPPOTrainer:
         else:
             if self.config.trainer.resume_mode == "resume_path":
                 assert isinstance(self.config.trainer.resume_from_path, str), "resume ckpt must be str type"
-                assert "global_step_" in self.config.trainer.resume_from_path, (
-                    "resume ckpt must specify the global_steps"
-                )
+                # assert "global_step_" in self.config.trainer.resume_from_path, (
+                #     "resume ckpt must specify the global_steps"
+                # )
                 global_step_folder = self.config.trainer.resume_from_path
                 if not os.path.isabs(global_step_folder):
                     working_dir = os.getcwd()
                     global_step_folder = os.path.join(working_dir, global_step_folder)
         print(f"Load from checkpoint folder: {global_step_folder}")
         # set global step
-        self.global_steps = int(global_step_folder.split("global_step_")[-1])
+        if "global_step_" in global_step_folder:
+            self.global_steps = int(global_step_folder.split("global_step_")[-1])
+        else:
+            print("WARNING: resume_from_path does not specify the global_steps")
+            self.global_steps = 0
 
         print(f"Setting global step to {self.global_steps}")
         print(f"Resuming from {global_step_folder}")
