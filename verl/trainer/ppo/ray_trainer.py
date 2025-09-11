@@ -20,6 +20,7 @@ This trainer supports model-agonistic model initialization with huggingface
 
 import json
 import os
+import time
 import uuid
 from collections import defaultdict
 from copy import deepcopy
@@ -1168,8 +1169,11 @@ class RayPPOTrainer:
         # currently, we only support validation using the reward_function.
         if self.val_reward_fn is not None and self.config.trainer.get("val_before_train", True):
             # full dataset validation
+            start = time.time()
             val_metrics = self._validate(self.val_dataloader, self.config.actor_rollout_ref.rollout.val_kwargs)
             assert val_metrics, f"{val_metrics=}"
+            end = time.time()
+            print(f"Full dataset validation time: {end - start} seconds")
 
             # Initialize the best validation metrics for pass@k before training
             self._update_best_pass_at(val_metrics, 1)
