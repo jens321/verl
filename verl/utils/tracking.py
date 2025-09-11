@@ -144,6 +144,12 @@ class Tracking:
             self.console_logger = LocalLogger(print_to_console=True)
             self.logger["console"] = self.console_logger
 
+        if "json_eval" in default_backend:
+            from verl.utils.logger import JsonEvalLogger
+
+            self.json_eval_logger = JsonEvalLogger(resume_from_path=config['trainer']['resume_from_path'], task=config['data']['task'])
+            self.logger["json_eval"] = self.json_eval_logger
+
         if "clearml" in default_backend:
             self.logger["clearml"] = ClearMLLogger(project_name, experiment_name, config)
 

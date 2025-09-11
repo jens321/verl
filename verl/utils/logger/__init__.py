@@ -16,6 +16,7 @@
 from .aggregate_logger import (
     DecoratorLoggerBase,
     LocalLogger,
+    JsonEvalLogger,
     log_with_rank,
     print_rank_0,
     print_with_rank,
