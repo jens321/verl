@@ -19,6 +19,7 @@ import argparse
 import os
 import re
 
+import numpy as np
 import datasets
 
 from verl.utils.hdfs_io import copy, makedirs
@@ -88,6 +89,12 @@ if __name__ == "__main__":
 
     train_dataset = train_dataset.map(function=make_map_fn("train"), with_indices=True)
     test_dataset = test_dataset.map(function=make_map_fn("test"), with_indices=True)
+    # split test into dev and test by picking random subset of 512 examples
+    all_test_indices = range(len(test_dataset))
+    all_test_indices = list(all_test_indices)
+    np.random.shuffle(all_test_indices)
+    dev_dataset = test_dataset.select(all_test_indices[:512])
+    test_dataset = test_dataset.select(all_test_indices[512:])
 
     hdfs_dir = args.hdfs_dir
     local_save_dir = args.local_dir
