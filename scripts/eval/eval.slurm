@@ -6,9 +6,10 @@
 #SBATCH --cpus-per-task=90
 #SBATCH --mem=900G
 #SBATCH --time=00-23:59:59    # Run for 23:59:59 hours
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:8
 #SBATCH --partition=pli-c
 #SBATCH --account=pli
+#SBATCH --qos=pli-cp
 
 set -x
 
