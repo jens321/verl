@@ -1,4 +1,4 @@
-TASK=math
+TASK=countdown-4
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 BETA=0.25
@@ -24,10 +24,10 @@ TURN_OFF_UNLIKELY_IF_ALL_CORRECT=True # default: False
 
 # GRPO specific
 LOSS_AGG_MODE="token-mean"
-KL_LOSS_COEF=0.1 # default: 0.1
+KL_LOSS_COEF=0.0 # default: 0.1
 NORM_ADV_BY_STD_IN_GRPO=True
 
-for SEED in 41 43; do
+for SEED in 43; do
     echo "Running job on ${TASK} with the following parameters:"
     echo "ALGORITHM: ${ALGORITHM}"
     echo "MODEL_PATH: ${MODEL_PATH}"

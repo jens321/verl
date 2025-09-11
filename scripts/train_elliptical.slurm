@@ -5,7 +5,7 @@
 #SBATCH -n 1 #tasks
 #SBATCH --cpus-per-task=90
 #SBATCH --mem=900G
-#SBATCH --time=01-23:59:59    # Run for 23:59:59 hours
+#SBATCH --time=00-23:59:59    # Run for 23:59:59 hours
 #SBATCH --gres=gpu:8
 #SBATCH --partition=pli-c
 #SBATCH --account=pli
@@ -122,7 +122,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
     trainer.project_name='llm-exploration-rl-training' \
-    trainer.experiment_name="${TASK}_elliptical_seed_${SEED}_kl_${KL_LOSS_COEF}_ppo_epochs_${PPO_EPOCHS}_beta_${BETA}" \
+    trainer.experiment_name="${TASK}_elliptical_seed_${SEED}_kl_${KL_LOSS_COEF}_ppo_epochs_${PPO_EPOCHS}_beta_${BETA}_turn_off_elliptical_if_none_correct_${TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT}" \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
     trainer.save_freq=$SAVE_FREQ \

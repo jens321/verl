@@ -1,4 +1,4 @@
-TASK=math
+TASK=countdown-4
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 ROLLOUTS=8
@@ -23,7 +23,7 @@ if [ ${ALGORITHM} == "dr_grpo" ]; then
     NORM_ADV_BY_STD_IN_GRPO=False
 else
     LOSS_AGG_MODE="token-mean"
-    KL_LOSS_COEF=0.1 # default: 0.001
+    KL_LOSS_COEF=0.0 # default: 0.001
     NORM_ADV_BY_STD_IN_GRPO=True
 fi
 
