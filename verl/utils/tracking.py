@@ -147,7 +147,9 @@ class Tracking:
         if "json_eval" in default_backend:
             from verl.utils.logger import JsonEvalLogger
 
-            self.json_eval_logger = JsonEvalLogger(resume_from_path=config['trainer']['resume_from_path'], task=config['data']['task'])
+            resume_from_path = config['actor_rollout_ref']['model']['path'].split('/')[-4:-2]
+            resume_from_path = '/'.join(resume_from_path)
+            self.json_eval_logger = JsonEvalLogger(resume_from_path=resume_from_path, task=config['data']['task'])
             self.logger["json_eval"] = self.json_eval_logger
 
         if "clearml" in default_backend:
