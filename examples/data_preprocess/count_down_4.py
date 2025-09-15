@@ -25,7 +25,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--local_dir', default='~/data/countdown-4')
     parser.add_argument('--hdfs_dir', default=None)
-    parser.add_argument('--train_size', type=int, default=32768)
+    parser.add_argument('--train_size', type=int, default=8192)
     parser.add_argument('--dev_size', type=int, default=512)
     parser.add_argument('--test_size', type=int, default=1024)
 
@@ -75,6 +75,7 @@ if __name__ == '__main__':
     local_dir = args.local_dir
     hdfs_dir = args.hdfs_dir
 
+    print(len(train_dataset), len(dev_dataset), len(test_dataset))
     train_dataset.to_parquet(os.path.join(local_dir, 'train.parquet'))
     dev_dataset.to_parquet(os.path.join(local_dir, 'dev.parquet'))
     test_dataset.to_parquet(os.path.join(local_dir, 'test.parquet'))
