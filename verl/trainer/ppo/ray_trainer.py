@@ -915,6 +915,20 @@ class RayPPOTrainer:
         with open(local_latest_checkpointed_iteration, "w") as f:
             f.write(str(self.global_steps))
 
+        # Write best metric to global steps
+        local_best_metric_to_global_step = os.path.join(
+            self.config.trainer.default_local_dir, "best_metric_to_global_step.json"
+        )
+        with open(local_best_metric_to_global_step, "w") as f:
+            json.dump(self.best_dev_pass_at_k_to_global_step, f)
+
+        # Write best hard metric to global steps
+        local_best_hard_metric_to_global_step = os.path.join(
+            self.config.trainer.default_local_dir, "best_hard_metric_to_global_step.json"
+        )
+        with open(local_best_hard_metric_to_global_step, "w") as f:
+            json.dump(self.best_dev_hard_pass_at_k_to_global_step, f)
+
     def _load_checkpoint(self):
         if self.config.trainer.resume_mode == "disable":
             # NOTE: while there is no checkpoint to load, we still need to offload the model and optimizer to CPU
@@ -1109,6 +1123,7 @@ class RayPPOTrainer:
             if k.endswith(f"reward/pass@{pass_at_k}/mean"):
                 if val_metrics[k] > self.best_dev_pass_at_k[pass_at_k]:
                     self.best_dev_pass_at_k[pass_at_k] = val_metrics[k]
+                    self.best_dev_pass_at_k_to_global_step[pass_at_k] = self.global_steps
                     return True
                 
         return False
@@ -1125,6 +1140,7 @@ class RayPPOTrainer:
             if k.endswith(f"reward-hard-subset-perc-10/pass@{pass_at_k}/mean"):
                 if val_metrics[k] > self.best_dev_hard_pass_at_k[pass_at_k]:
                     self.best_dev_hard_pass_at_k[pass_at_k] = val_metrics[k]
+                    self.best_dev_hard_pass_at_k_to_global_step[pass_at_k] = self.global_steps
                     return True
                 
         return False
@@ -1158,6 +1174,15 @@ class RayPPOTrainer:
         }
 
         self.best_dev_hard_pass_at_k = {
+            1: 0,
+            64: 0,
+        }
+
+        self.best_dev_pass_at_k_to_global_step = {
+            1: 0,
+            64: 0,
+        }
+        self.best_dev_hard_pass_at_k_to_global_step = {
             1: 0,
             64: 0,
         }
