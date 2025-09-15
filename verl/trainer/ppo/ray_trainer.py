@@ -733,6 +733,7 @@ class RayPPOTrainer:
         self.resource_pool_manager.create_resource_pool()
 
         self.resource_pool_to_cls = {pool: {} for pool in self.resource_pool_manager.resource_pool_dict.values()}
+        val_only = self.config.trainer.get("val_only", False)
 
         # create actor and rollout
         if self.hybrid_engine:
@@ -747,14 +748,14 @@ class RayPPOTrainer:
             raise NotImplementedError
 
         # create critic
-        if self.use_critic:
+        if self.use_critic and not val_only:
             resource_pool = self.resource_pool_manager.get_resource_pool(Role.Critic)
             critic_cfg = omega_conf_to_dataclass(self.config.critic)
             critic_cls = RayClassWithInitArgs(cls=self.role_worker_mapping[Role.Critic], config=critic_cfg)
             self.resource_pool_to_cls[resource_pool][str(Role.Critic)] = critic_cls
 
         # create reference policy if needed
-        if self.use_reference_policy:
+        if self.use_reference_policy and not val_only:
             resource_pool = self.resource_pool_manager.get_resource_pool(Role.RefPolicy)
             ref_policy_cls = RayClassWithInitArgs(
                 self.role_worker_mapping[Role.RefPolicy],
@@ -765,7 +766,7 @@ class RayPPOTrainer:
 
 
         # create a reward model if reward_fn is None
-        if self.use_rm:
+        if self.use_rm and not val_only:
             # we create a RM here
             resource_pool = self.resource_pool_manager.get_resource_pool(Role.RewardModel)
             rm_cls = RayClassWithInitArgs(self.role_worker_mapping[Role.RewardModel], config=self.config.reward_model)
