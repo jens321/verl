@@ -1,7 +1,7 @@
 TASK=countdown-4 # gsm8k, countdown-4
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
-SPARSE_DIM=32
+SPARSE_DIM=128
 BETA=0.01
 ROLLOUTS=8
 REWARD_TYPE=leverage
@@ -23,17 +23,18 @@ RESUME_FROM_PATH=''
 USE_KL_LOSS=True
 TURN_OFF_AT_GLOBAL_STEPS=-1
 PPO_EPOCHS=1
-SAVE_BEST_PASS_AT_1=True
-SAVE_BEST_HARD_PASS_AT_1=True
-SAVE_BEST_PASS_AT_64=True
-SAVE_BEST_HARD_PASS_AT_64=True
-CHECKPOINT_SAVE_CONTENTS='["model"]'
-MAX_ACTOR_CKPT_TO_KEEP=1
+SAVE_BEST_PASS_AT_1=False
+SAVE_BEST_HARD_PASS_AT_1=False
+SAVE_BEST_PASS_AT_64=False
+SAVE_BEST_HARD_PASS_AT_64=False
+CHECKPOINT_SAVE_CONTENTS='["model","optimizer","extra"]'
+MAX_ACTOR_CKPT_TO_KEEP=null
 REWARD_MODEL_ENABLE=True
 ELLIPTICAL_ENABLE=True
 REWARD_MANAGER=elliptical
 TRAIN_BATCH_SIZE=1024 # default: 1024
 PPO_MINI_BATCH_SIZE=256 # default: 256
+REMOVE_PREVIOUS_OPTIM_AND_EXTRA=True
 
 if [ ${ALGORITHM} == "dr_grpo" ]; then
     LOSS_AGG_MODE="seq-mean-token-sum-norm"
@@ -93,6 +94,7 @@ for SEED in 41 43; do
     echo "MAX_ACTOR_CKPT_TO_KEEP: ${MAX_ACTOR_CKPT_TO_KEEP}"
     echo "TRAIN_BATCH_SIZE: ${TRAIN_BATCH_SIZE}"
     echo "PPO_MINI_BATCH_SIZE: ${PPO_MINI_BATCH_SIZE}"
+    echo "REMOVE_PREVIOUS_OPTIM_AND_EXTRA: ${REMOVE_PREVIOUS_OPTIM_AND_EXTRA}"
     sbatch --job-name=${TASK}_elliptical_seed_${SEED}_kl_${KL_LOSS_COEF}_ppo_epochs_${PPO_EPOCHS}_beta_${BETA} scripts/train_elliptical.slurm \
         ${MODEL_PATH} \
         ${REWARD_MODEL_ENABLE} \
@@ -134,6 +136,7 @@ for SEED in 41 43; do
         ${SAVE_BEST_HARD_PASS_AT_64} \
         ${MAX_ACTOR_CKPT_TO_KEEP} \
         ${TRAIN_BATCH_SIZE} \
-        ${PPO_MINI_BATCH_SIZE}
+        ${PPO_MINI_BATCH_SIZE} \
+        ${REMOVE_PREVIOUS_OPTIM_AND_EXTRA}
     echo "--------------------------------"
 done

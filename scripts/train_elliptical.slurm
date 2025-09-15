@@ -53,6 +53,7 @@ SAVE_BEST_HARD_PASS_AT_64=${38}
 MAX_ACTOR_CKPT_TO_KEEP=${39}
 TRAIN_BATCH_SIZE=${40}
 PPO_MINI_BATCH_SIZE=${41}
+REMOVE_PREVIOUS_OPTIM_AND_EXTRA=${42}
 
 math_train_path=$HOME/data/${TASK}/train.parquet
 math_test_path=$HOME/data/${TASK}/dev.parquet
@@ -72,6 +73,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     data.task=$TASK \
     actor_rollout_ref.model.path="$MODEL_PATH" \
     actor_rollout_ref.actor.checkpoint.save_contents=$CHECKPOINT_SAVE_CONTENTS \
+    actor_rollout_ref.actor.checkpoint.remove_previous_optim_and_extra=$REMOVE_PREVIOUS_OPTIM_AND_EXTRA \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.ppo_mini_batch_size=$PPO_MINI_BATCH_SIZE \
@@ -122,7 +124,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
     trainer.project_name='llm-exploration-rl-training' \
-    trainer.experiment_name="${TASK}_elliptical_seed_${SEED}_kl_${KL_LOSS_COEF}_ppo_epochs_${PPO_EPOCHS}_beta_${BETA}_turn_off_elliptical_if_none_correct_${TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT}" \
+    trainer.experiment_name="${TASK}_elliptical_seed_${SEED}_kl_${KL_LOSS_COEF}_ppo_epochs_${PPO_EPOCHS}_beta_${BETA}_turn_off_elliptical_if_none_correct_${TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT}_sparse_dim_${SPARSE_DIM}" \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
     trainer.save_freq=$SAVE_FREQ \

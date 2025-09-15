@@ -34,6 +34,7 @@ SAVE_BEST_HARD_PASS_AT_64=${19}
 MAX_ACTOR_CKPT_TO_KEEP=${20}
 TRAIN_BATCH_SIZE=${21}
 PPO_MINI_BATCH_SIZE=${22}
+REMOVE_PREVIOUS_OPTIM_AND_EXTRA=${23}
 
 math_train_path=$HOME/data/${TASK}/train.parquet
 math_test_path=$HOME/data/${TASK}/dev.parquet
@@ -53,6 +54,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     data.task=$TASK \
     actor_rollout_ref.model.path="$MODEL_PATH" \
     actor_rollout_ref.actor.checkpoint.save_contents=$CHECKPOINT_SAVE_CONTENTS \
+    actor_rollout_ref.actor.checkpoint.remove_previous_optim_and_extra=$REMOVE_PREVIOUS_OPTIM_AND_EXTRA \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.ppo_mini_batch_size=$PPO_MINI_BATCH_SIZE \

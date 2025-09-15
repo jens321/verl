@@ -5,7 +5,7 @@
 #SBATCH -n 1 #tasks
 #SBATCH --cpus-per-task=90
 #SBATCH --mem=900G
-#SBATCH --time=01-01:00:00    # Run for 23:59:59 hours
+#SBATCH --time=00-23:59:59    # Run for 23:59:59 hours
 #SBATCH --gres=gpu:8
 #SBATCH --partition=pli-c
 #SBATCH --account=pli
@@ -39,6 +39,7 @@ PPO_EPOCHS=${24}
 GEN_BATCH_SIZE=${25}
 GRAD_SKIP_THRESH=${26}
 TURN_OFF_UNLIKELY_IF_ALL_CORRECT=${27}
+REMOVE_PREVIOUS_OPTIM_AND_EXTRA=${28}
 
 EXTRA_GEN_ARG=""
 if [ "$GEN_BATCH_SIZE" != "null" ]; then
@@ -73,6 +74,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     data.truncation='error' \
     data.task=$TASK \
     data.drop_samples_with_no_adv=$DROP_SAMPLES_WITH_NO_ADV $EXTRA_GEN_ARG \
+    actor_rollout_ref.actor.checkpoint.remove_previous_optim_and_extra=$REMOVE_PREVIOUS_OPTIM_AND_EXTRA \
     actor_rollout_ref.model.path="$MODEL_PATH" \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.actor.checkpoint.save_contents=$CHECKPOINT_SAVE_CONTENTS \

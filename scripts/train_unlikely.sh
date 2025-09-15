@@ -8,12 +8,12 @@ SAVE_FREQ=20
 RESUME_MODE=disable
 RESUME_FROM_PATH=''
 USE_KL_LOSS=True
-SAVE_BEST_PASS_AT_1=True
-SAVE_BEST_HARD_PASS_AT_1=True
-SAVE_BEST_PASS_AT_64=True
-SAVE_BEST_HARD_PASS_AT_64=True
-CHECKPOINT_SAVE_CONTENTS='["model"]'
-MAX_ACTOR_CKPT_TO_KEEP=1
+SAVE_BEST_PASS_AT_1=False
+SAVE_BEST_HARD_PASS_AT_1=False
+SAVE_BEST_PASS_AT_64=False
+SAVE_BEST_HARD_PASS_AT_64=False
+CHECKPOINT_SAVE_CONTENTS='["model","optimizer","extra"]'
+MAX_ACTOR_CKPT_TO_KEEP=null
 TRAIN_BATCH_SIZE=1024 # default: $((256 / ${ROLLOUTS}))
 PPO_MINI_BATCH_SIZE=256 # default: $((256 / ${ROLLOUTS}))
 DROP_SAMPLES_WITH_NO_ADV=False # default: True
@@ -21,13 +21,14 @@ PPO_EPOCHS=1 # default: 2
 GEN_BATCH_SIZE=null # default: 16
 GRAD_SKIP_THRESH=null # default: 20.0
 TURN_OFF_UNLIKELY_IF_ALL_CORRECT=True # default: False
+REMOVE_PREVIOUS_OPTIM_AND_EXTRA=True
 
 # GRPO specific
 LOSS_AGG_MODE="token-mean"
 KL_LOSS_COEF=0.0 # default: 0.1
 NORM_ADV_BY_STD_IN_GRPO=True
 
-for SEED in 43; do
+for SEED in 41 43; do
     echo "Running job on ${TASK} with the following parameters:"
     echo "ALGORITHM: ${ALGORITHM}"
     echo "MODEL_PATH: ${MODEL_PATH}"
@@ -55,6 +56,7 @@ for SEED in 43; do
     echo "GEN_BATCH_SIZE: ${GEN_BATCH_SIZE}"
     echo "GRAD_SKIP_THRESH: ${GRAD_SKIP_THRESH}"
     echo "TURN_OFF_UNLIKELY_IF_ALL_CORRECT: ${TURN_OFF_UNLIKELY_IF_ALL_CORRECT}"
+    echo "REMOVE_PREVIOUS_OPTIM_AND_EXTRA: ${REMOVE_PREVIOUS_OPTIM_AND_EXTRA}"
     sbatch --job-name=${TASK}_unlikely_seed_${SEED}_kl_${KL_LOSS_COEF} scripts/train_unlikely.slurm \
         ${MODEL_PATH} \
         ${SEED} \
@@ -82,6 +84,7 @@ for SEED in 43; do
         ${PPO_EPOCHS} \
         ${GEN_BATCH_SIZE} \
         ${GRAD_SKIP_THRESH} \
-        ${TURN_OFF_UNLIKELY_IF_ALL_CORRECT}
+        ${TURN_OFF_UNLIKELY_IF_ALL_CORRECT} \
+        ${REMOVE_PREVIOUS_OPTIM_AND_EXTRA}
     echo "--------------------------------"
 done
