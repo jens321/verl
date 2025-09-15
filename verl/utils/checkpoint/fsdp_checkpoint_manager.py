@@ -18,6 +18,7 @@ import os
 import warnings
 from dataclasses import asdict, dataclass
 from typing import Optional
+import glob
 
 import torch
 import torch.distributed
@@ -94,6 +95,8 @@ class FSDPCheckpointManager(BaseCheckpointManager):
             processing_class=processing_class,
             checkpoint_config=checkpoint_config,
         )
+
+        self.remove_previous_optim_and_extra = checkpoint_config.get("remove_previous_optim_and_extra", False)
 
     def load_checkpoint(self, local_path: str, hdfs_path: str = None, del_local_after_load=False):
         """
@@ -212,6 +215,18 @@ class FSDPCheckpointManager(BaseCheckpointManager):
             keep_start = len(self.previous_saved_paths) - max_ckpt_to_keep + 1
             self.remove_previous_save_local_path(self.previous_saved_paths[:keep_start])
             self.previous_saved_paths = self.previous_saved_paths[keep_start:]
+
+        if (
+            self.rank == 0
+            and self.remove_previous_optim_and_extra
+            and len(self.previous_saved_paths) > 0
+        ):
+            prefix = self.previous_saved_paths[-1]
+            paths_to_remove = []
+            paths_to_remove.extend(glob.glob(os.path.join(prefix, "optim_world_size_*_rank_*.pt")))
+            paths_to_remove.extend(glob.glob(os.path.join(prefix, "extra_state_world_size_*_rank_*.pt")))
+            for path in paths_to_remove:
+                os.remove(path)
 
         local_path = local_mkdir_safe(local_path)
         torch.distributed.barrier()
