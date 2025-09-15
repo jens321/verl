@@ -1,7 +1,7 @@
 set -x
 
-math_train_path=$HOME/data/countdown-4/train.parquet
-math_test_path=$HOME/data/countdown-4/dev.parquet
+math_train_path=$HOME/data/gsm8k/train.parquet
+math_test_path=$HOME/data/gsm8k/dev.parquet
 
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
@@ -17,7 +17,8 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  data.truncation='error' \
  data.task=countdown \
  data.drop_samples_with_no_adv=False \
- actor_rollout_ref.actor.checkpoint.save_contents='["model"]' \
+ actor_rollout_ref.actor.checkpoint.save_contents='["model","optimizer","extra"]' \
+ actor_rollout_ref.actor.checkpoint.remove_previous_optim_and_extra=True \
  actor_rollout_ref.model.path=Qwen/Qwen2.5-0.5B-Instruct \
  actor_rollout_ref.actor.optim.lr=1e-6 \
  actor_rollout_ref.model.use_remove_padding=True \
@@ -68,13 +69,13 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  trainer.critic_warmup=0 \
  trainer.logger='["console"]' \
  trainer.val_before_train=False \
- trainer.n_gpus_per_node=2 \
+ trainer.n_gpus_per_node=1 \
  trainer.nnodes=1 \
- trainer.save_freq=-1 \
+ trainer.save_freq=1 \
  trainer.test_freq=1 \
  trainer.total_epochs=15 \
  trainer.resume_mode=disable \
- trainer.max_actor_ckpt_to_keep=1 \
+ trainer.max_actor_ckpt_to_keep=null \
  trainer.seed=41 2>&1 | tee verl_demo.log
 
 #  trainer.resume_mode=resume_path \
