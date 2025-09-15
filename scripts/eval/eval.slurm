@@ -3,13 +3,11 @@
 #SBATCH --output=slurm_output/%x-%j.out
 #SBATCH -N 1 #nodes
 #SBATCH -n 1 #tasks
-#SBATCH --cpus-per-task=90
-#SBATCH --mem=950G
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=128G
 #SBATCH --time=00-23:59:59    # Run for 23:59:59 hours
-#SBATCH --gres=gpu:8
-#SBATCH --partition=pli-c
-#SBATCH --account=pli
-#SBATCH --qos=pli-cp
+#SBATCH --gres=gpu:1
+#SBATCH --constraint=gpu80
 
 set -x
 
@@ -35,7 +33,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jt
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.task=$TASK \
-    data.val_batch_size=512 \
+    data.val_batch_size=128 \
     actor_rollout_ref.model.path="$MODEL_PATH" \
     actor_rollout_ref.actor.checkpoint.save_contents=$CHECKPOINT_SAVE_CONTENTS \
     actor_rollout_ref.actor.optim.lr=1e-6 \
@@ -50,10 +48,10 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jt
     actor_rollout_ref.actor.fsdp_config.param_offload=False \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=16 \
-    actor_rollout_ref.rollout.tensor_model_parallel_size=2 \
+    actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=vllm \
-    actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
-    actor_rollout_ref.rollout.val_kwargs.n=512 \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.95 \
+    actor_rollout_ref.rollout.val_kwargs.n=256 \
     actor_rollout_ref.rollout.n=8 \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16 \
     actor_rollout_ref.ref.fsdp_config.param_offload=True \
@@ -69,7 +67,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jt
     trainer.logger='["console","json_eval"]' \
     trainer.project_name='llm-exploration-rl-training' \
     trainer.experiment_name="${TASK}_eval" \
-    trainer.n_gpus_per_node=8 \
+    trainer.n_gpus_per_node=1 \
     trainer.nnodes=1 \
     trainer.save_freq=-1 \
     trainer.test_freq=1 \
