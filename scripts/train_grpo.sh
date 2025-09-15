@@ -28,7 +28,7 @@ else
     NORM_ADV_BY_STD_IN_GRPO=True
 fi
 
-for SEED in 41 43; do
+for SEED in 42; do
     echo "Running job on ${TASK} with the following parameters:"
     echo "ALGORITHM: ${ALGORITHM}"
     echo "MODEL_PATH: ${MODEL_PATH}"

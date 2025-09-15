@@ -4,7 +4,7 @@
 #SBATCH -N 1 #nodes
 #SBATCH -n 1 #tasks
 #SBATCH --cpus-per-task=90
-#SBATCH --mem=900G
+#SBATCH --mem=950G
 #SBATCH --time=00-23:59:59    # Run for 23:59:59 hours
 #SBATCH --gres=gpu:8
 #SBATCH --partition=pli-c
@@ -35,6 +35,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jt
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.task=$TASK \
+    data.val_batch_size=512 \
     actor_rollout_ref.model.path="$MODEL_PATH" \
     actor_rollout_ref.actor.checkpoint.save_contents=$CHECKPOINT_SAVE_CONTENTS \
     actor_rollout_ref.actor.optim.lr=1e-6 \
