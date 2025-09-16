@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -uxo pipefail
 
-export VERL_HOME=${VERL_HOME:-"${HOME}/verl"}
+MY_HOME="/scratch/gpfs/jtuyls/llm-rl-exploration"
+
+export VERL_HOME=${VERL_HOME:-"${MY_HOME}/verl"}
 export TRAIN_FILE=${TRAIN_FILE:-"${VERL_HOME}/data/dapo-math-17k.parquet"}
 export TEST_FILE=${TEST_FILE:-"${VERL_HOME}/data/aime-2024.parquet"}
 export OVERWRITE=${OVERWRITE:-0}
