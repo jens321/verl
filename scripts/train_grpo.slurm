@@ -9,6 +9,7 @@
 #SBATCH --gres=gpu:8
 #SBATCH --partition=pli-c
 #SBATCH --account=pli
+#SBATCH --qos=pli-cp
 
 set -x
 
@@ -42,13 +43,21 @@ math_test_path=$HOME/data/${TASK}/dev.parquet
 train_files="['$math_train_path']"
 test_files="['$math_test_path']"
 
+if [ ${TASK} == "dapo-with-aime2425" ]; then
+    MAX_PROMPT_LENGTH=$((1024 * 2))
+    MAX_RESPONSE_LENGTH=$((1024 * 8))
+else
+    MAX_PROMPT_LENGTH=1024
+    MAX_RESPONSE_LENGTH=1024
+fi
+
 PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtuyls python3 -u -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
     data.train_batch_size=$TRAIN_BATCH_SIZE \
-    data.max_prompt_length=1024 \
-    data.max_response_length=1024 \
+    data.max_prompt_length=$MAX_PROMPT_LENGTH \
+    data.max_response_length=$MAX_RESPONSE_LENGTH \
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.task=$TASK \

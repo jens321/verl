@@ -1,4 +1,4 @@
-TASK=countdown-4 # gsm8k, countdown-4
+TASK=gsm8k # math, gsm8k, countdown-4, dapo-with-aime2425
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 SPARSE_DIM=128
@@ -52,7 +52,7 @@ else
     PASS_AT_K_FREQ=-1
 fi
 
-for SEED in 42; do
+for SEED in 41 42 43; do
     echo "Running job on ${TASK} with the following parameters:"
     echo "ALGORITHM: ${ALGORITHM}"
     echo "MODEL_PATH: ${MODEL_PATH}"

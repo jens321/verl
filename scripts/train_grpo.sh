@@ -1,4 +1,4 @@
-TASK=countdown-4
+TASK=dapo-with-aime2425 # math, gsm8k, countdown-4, dapo-with-aime2425
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 ROLLOUTS=8
@@ -26,6 +26,11 @@ else
     LOSS_AGG_MODE="token-mean"
     KL_LOSS_COEF=0.0 # default: 0.001
     NORM_ADV_BY_STD_IN_GRPO=True
+fi
+
+if [ ${TASK} == "dapo-with-aime2425" ]; then
+    TEST_FREQ=5
+    SAVE_FREQ=-1
 fi
 
 for SEED in 42; do
