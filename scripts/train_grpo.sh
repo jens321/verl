@@ -29,11 +29,13 @@ else
 fi
 
 if [ ${TASK} == "dapo-with-aime2425" ]; then
-    TEST_FREQ=5
-    SAVE_FREQ=-1
+    TEST_FREQ=10
+    SAVE_FREQ=10
+    TRAIN_BATCH_SIZE=512
+    PPO_MINI_BATCH_SIZE=128
 fi
 
-for SEED in 42; do
+for SEED in 41 43; do
     echo "Running job on ${TASK} with the following parameters:"
     echo "ALGORITHM: ${ALGORITHM}"
     echo "MODEL_PATH: ${MODEL_PATH}"
