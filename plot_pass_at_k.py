@@ -7,12 +7,44 @@ import numpy as np
 import scipy.stats as stats
 import seaborn as sns
 
-
 EVAL_FOLDER = './eval'
 TASKS = ["math", "gsm8k", "gsm8k"]
 SEEDS = [41, 42, 43]
-ALGORITHMS = ["grpo", "unlikely", "elliptical"]
+ALGORITHMS = ["grpo", "unlikely", "elliptical", "untrained"]
 CHECKPOINT_TYPE = "best_pass@1"
+
+FACE_COLOR = "#F7F7FF"
+MARKER = "o"
+LINEWIDTH = 1.7
+MARKERSIZE = 8
+MARKEREDGEWIDTH = 1.2
+
+LABEL_FONT_SIZE = 12
+TITLE_FONT_SIZE = 14
+TICK_LABEL_FONT_SIZE = 12
+LEGEND_FONT_SIZE = 12
+
+TASK_TO_NICE_NAME = {
+    "math": "MATH",
+    "gsm8k": "GSM8K",
+    "mbpp": "MBPP",
+    "aime_2025": "AIME 2025",
+    "game24": "Game of 24",
+}
+
+ALGO_TO_COLOR = {
+    "grpo": sns.color_palette("deep")[-1],
+    "untrained": sns.color_palette("deep")[7],
+    "elliptical": sns.color_palette("colorblind")[2],
+    "unlikely": sns.color_palette("deep")[1],
+}
+
+ALGO_TO_NICE_NAME = {
+    "grpo": "GRPO",
+    "untrained": "Base Model",
+    "elliptical": "Elliptical",
+    "unlikely": "Unlikely",
+}
 
 def process_data(data, algorithm):
     pass_at_k = defaultdict(list)
@@ -57,29 +89,69 @@ def main():
             # plot the data
             xs = list(pass_at_k.keys())
             ys = np.array([pass_at_k[k] for k in xs])
-            ax.plot(xs, ys, label=algorithm)
+            ax.plot(
+                xs, 
+                ys, 
+                color=ALGO_TO_COLOR[algorithm], 
+                label=algorithm, 
+                markeredgecolor=FACE_COLOR, 
+                marker=MARKER, 
+                linewidth=LINEWIDTH, 
+                markersize=MARKERSIZE, 
+                markeredgewidth=MARKEREDGEWIDTH,
+                alpha=1.0 if algorithm != "untrained" else 0.8
+            )
 
             if algorithm != "untrained":
                 sems = np.array([pass_at_k_sem[k] for k in xs])
-                ax.fill_between(xs, ys - sems, ys + sems, alpha=0.2)
+                ax.fill_between(xs, ys - sems, ys + sems, alpha=0.2, color=ALGO_TO_COLOR[algorithm])
 
-            if task == 'gsm8k' and algorithm == 'untrained':
-                ax.set_ylim(top=1.0, bottom=0.7)
-            else:
-                ax.set_ylim(top=1.0)
+            
+            if task == 'math':
+                ax.set_ylim(top=0.95, bottom=0.7)
+            elif task == 'gsm8k':
+                ax.set_ylim(top=0.995, bottom=0.925)
             ax.set_xlim(left=1, right=256)
-            ax.legend()
+            # ax.legend()
             ax.set_xscale("log", base=2)
             x_ticks = [2**i for i in range(int(np.log2(max(xs))) + 1)]
             x_tick_labels = [f"$2^{{{i}}}$" for i in range(int(np.log2(max(xs))) + 1)]
             ax.set_xticks(x_ticks, x_tick_labels)
-            ax.set_xlabel("k")
+            ax.set_xlabel("k", fontsize=LABEL_FONT_SIZE)
             if i == 0:
-                ax.set_ylabel("Pass@k")
-            ax.set_title(f"{task} {CHECKPOINT_TYPE}")
+                ax.set_ylabel("Pass@k", fontsize=LABEL_FONT_SIZE)
+            ax.set_title(f"{TASK_TO_NICE_NAME[task]}", fontsize=TITLE_FONT_SIZE)
+
+        for _label in ax.get_xticklabels():
+            _label.set_fontsize(TICK_LABEL_FONT_SIZE)
+        for _label in ax.get_yticklabels():
+            _label.set_fontsize(TICK_LABEL_FONT_SIZE)
+
+    from matplotlib.lines import Line2D
+    legend_handles = [
+        Line2D(
+            [0], [0],
+            color=ALGO_TO_COLOR[algo],
+            marker=MARKER,
+            linestyle='-',
+            linewidth=LINEWIDTH,
+            markersize=MARKERSIZE,
+            markeredgewidth=MARKEREDGEWIDTH,
+            markeredgecolor=FACE_COLOR,
+            label=ALGO_TO_NICE_NAME[algo]
+        )
+        for algo in ALGORITHMS
+    ]
+    legend = fig.legend(
+        handles=legend_handles,
+        loc="lower center",
+        ncol=len(ALGORITHMS),
+        bbox_to_anchor=(0.5, -0.05),
+        fontsize=LEGEND_FONT_SIZE
+    )
 
     plt.tight_layout()
-    plt.savefig(os.path.join("figures", f"rl_pass_at_k_{TASKS}_{CHECKPOINT_TYPE}.pdf"))
+    plt.savefig(os.path.join("figures", f"rl_pass_at_k_{TASKS}_{CHECKPOINT_TYPE}.pdf"), bbox_extra_artists=(legend,), bbox_inches='tight')
     plt.close()
 
 
