@@ -67,12 +67,14 @@ if [ ${TASK} == "dapo-with-aime2425" ]; then
     MAX_NUM_BATCHED_TOKENS=$((MAX_PROMPT_LENGTH + MAX_RESPONSE_LENGTH))
     GPU_MEMORY_UTILIZATION=0.5
     PPO_MICRO_BATCH_SIZE_PER_GPU=8
+    REWARD_MODEL_MICRO_BATCH_SIZE_PER_GPU=16
 else
     MAX_PROMPT_LENGTH=1024
     MAX_RESPONSE_LENGTH=1024
     MAX_NUM_BATCHED_TOKENS=8192
     GPU_MEMORY_UTILIZATION=0.6
     PPO_MICRO_BATCH_SIZE_PER_GPU=16
+    REWARD_MODEL_MICRO_BATCH_SIZE_PER_GPU=32
 fi
 
 PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtuyls python3 -u -m verl.trainer.main_ppo \
@@ -112,7 +114,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     reward_model.model.path="$MODEL_PATH" \
     reward_model.model.use_remove_padding=False \
     reward_model.model.fsdp_config.param_offload=True \
-    reward_model.micro_batch_size_per_gpu=32 \
+    reward_model.micro_batch_size_per_gpu=$REWARD_MODEL_MICRO_BATCH_SIZE_PER_GPU \
     reward_model.model.input_tokenizer=null \
     reward_model.elliptical.enable=$ELLIPTICAL_ENABLE \
     reward_model.elliptical.sparse_dim=$SPARSE_DIM \
@@ -144,7 +146,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.nnodes=1 \
     trainer.save_freq=$SAVE_FREQ \
     trainer.test_freq=$TEST_FREQ \
-    trainer.total_epochs=100 \
+    trainer.total_epochs=1000 \
     trainer.seed=$SEED \
     trainer.resume_mode=$RESUME_MODE \
     trainer.resume_from_path=$RESUME_FROM_PATH \

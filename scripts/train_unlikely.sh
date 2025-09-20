@@ -1,4 +1,4 @@
-TASK=gsm8k # math, gsm8k, countdown-4, dapo-with-aime2425
+TASK=dapo-with-aime2425 # math, gsm8k, countdown-4, dapo-with-aime2425
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 BETA=0.25
@@ -28,7 +28,14 @@ LOSS_AGG_MODE="token-mean"
 KL_LOSS_COEF=0.0 # default: 0.1
 NORM_ADV_BY_STD_IN_GRPO=True
 
-for SEED in 41 42 43; do
+if [ ${TASK} == "dapo-with-aime2425" ]; then
+    TEST_FREQ=10
+    SAVE_FREQ=10
+    TRAIN_BATCH_SIZE=512
+    PPO_MINI_BATCH_SIZE=128
+fi
+
+for SEED in 42; do
     echo "Running job on ${TASK} with the following parameters:"
     echo "ALGORITHM: ${ALGORITHM}"
     echo "MODEL_PATH: ${MODEL_PATH}"

@@ -106,7 +106,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=offline TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtu
     trainer.nnodes=1 \
     trainer.save_freq=$SAVE_FREQ \
     trainer.test_freq=$TEST_FREQ \
-    trainer.total_epochs=100 \
+    trainer.total_epochs=1000 \
     trainer.seed=$SEED \
     trainer.resume_mode=$RESUME_MODE \
     trainer.resume_from_path=$RESUME_FROM_PATH \
