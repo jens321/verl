@@ -1,14 +1,27 @@
-TASK=math
-# NAME=math_elliptical_seed_42_kl_0.0_ppo_epochs_1_beta_0.01_turn_off_elliptical_if_none_correct_True_sparse_dim_32
-# NAME=math_grpo_seed_43_kl_0.0_ppo_epochs_1
-# NAME=math_unlikely_seed_43_kl_0.0
+TASK=countdown-4
+# NAME=math_elliptical_seed_42_kl_0.0_ppo_epochs_1_beta_0.01_turn_off_elliptical_if_none_correct_True_sparse_dim_32/best_pass@1/actor/hf
+# NAME=math_grpo_seed_43_kl_0.0_ppo_epochs_1/best_pass@1/actor/hf
+# NAME=math_unlikely_seed_43_kl_0.0/best_pass@1/actor/hf
 
-# NAME=gsm8k_elliptical_seed_43_kl_0.0_ppo_epochs_1_beta_0.01_turn_off_elliptical_if_none_correct_True_sparse_dim_32
-# NAME=gsm8k_grpo_seed_43_kl_0.0_ppo_epochs_1
-# NAME=gsm8k_unlikely_seed_43_kl_0.0
+# NAME=gsm8k_elliptical_seed_43_kl_0.0_ppo_epochs_1_beta_0.01_turn_off_elliptical_if_none_correct_True_sparse_dim_32/best_pass@1/actor/hf
+# NAME=gsm8k_grpo_seed_43_kl_0.0_ppo_epochs_1/best_pass@1/actor/hf
+# NAME=gsm8k_unlikely_seed_43_kl_0.0/best_pass@1/actor/hf
 
-# MODEL_PATH=/scratch/gpfs/KARTHIKN/jtuyls/checkpoints/llm-exploration-rl-training/${NAME}/best_pass@64/actor/hf
-MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
+# COUNTDOWN-4
+# NAME=countdown-4_elliptical_seed_41_kl_0.0_ppo_epochs_1_beta_0.01_turn_off_elliptical_if_none_correct_True_sparse_dim_128/global_step_160/actor/hf
+NAME=countdown-4_elliptical_seed_43_kl_0.0_ppo_epochs_1_beta_0.01_turn_off_elliptical_if_none_correct_True_sparse_dim_128/global_step_200/actor/hf
+
+# NAME=countdown-4_grpo_seed_41_kl_0.0_ppo_epochs_1/global_step_360/actor/hf
+# NAME=countdown-4_grpo_seed_43_kl_0.0_ppo_epochs_1/global_step_300/actor/hf
+
+# AIME
+# NAME=dapo-with-aime2425_elliptical_seed_41_kl_0.0_ppo_epochs_1_beta_0.01_turn_off_elliptical_if_none_correct_True_sparse_dim_128/global_step_70/actor/hf
+# NAME=dapo-with-aime2425_elliptical_seed_43_kl_0.0_ppo_epochs_1_beta_0.01_turn_off_elliptical_if_none_correct_True_sparse_dim_128/global_step_100/actor/hf
+
+# NAME=dapo-with-aime2425_grpo_seed_41_kl_0.0_ppo_epochs_1/global_step_230/actor/hf
+
+MODEL_PATH=/scratch/gpfs/jtuyls/llm-rl-exploration/checkpoints/llm-exploration-rl-training/${NAME}
+# MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 RESUME_MODE=disable
 RESUME_FROM_PATH=""
 CHECKPOINT_SAVE_CONTENTS='["model"]'

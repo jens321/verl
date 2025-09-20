@@ -1,5 +1,5 @@
-NAME=gsm8k_unlikely_seed_43_kl_0.0
-CHECKPOINT_PATH=/scratch/gpfs/KARTHIKN/jtuyls/checkpoints/llm-exploration-rl-training/${NAME}/best_pass@64/actor
+NAME=dapo-with-aime2425_grpo_seed_41_kl_0.0_ppo_epochs_1
+CHECKPOINT_PATH=/scratch/gpfs/jtuyls/llm-rl-exploration/checkpoints/llm-exploration-rl-training/${NAME}/global_step_230/actor
 
 python3 -m verl.model_merger merge \
     --backend fsdp \

@@ -5,7 +5,7 @@
 #SBATCH -n 1 #tasks
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=128G
-#SBATCH --time=01-23:59:59    # Run for 23:59:59 hours
+#SBATCH --time=00-23:59:59    # Run for 23:59:59 hours
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=gpu80
 
@@ -23,13 +23,23 @@ test_path=$HOME/data/${TASK}/test.parquet
 train_files="['$train_path']"
 test_files="['$test_path']"
 
+if [ ${TASK} == "dapo-with-aime2425" ]; then
+    MAX_PROMPT_LENGTH=$((1024 * 2))
+    MAX_RESPONSE_LENGTH=$((1024 * 8))
+    MAX_NUM_BATCHED_TOKENS=$((MAX_PROMPT_LENGTH + MAX_RESPONSE_LENGTH))
+else
+    MAX_PROMPT_LENGTH=1024
+    MAX_RESPONSE_LENGTH=1024
+    MAX_NUM_BATCHED_TOKENS=8192
+fi
+
 PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtuyls python3 -u -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
     data.train_batch_size=1024 \
-    data.max_prompt_length=1024 \
-    data.max_response_length=1024 \
+    data.max_prompt_length=$MAX_PROMPT_LENGTH \
+    data.max_response_length=$MAX_RESPONSE_LENGTH \
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.task=$TASK \
@@ -49,6 +59,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jt
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=16 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
+    actor_rollout_ref.rollout.max_num_batched_tokens=$MAX_NUM_BATCHED_TOKENS \
     actor_rollout_ref.rollout.name=vllm \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.95 \
     actor_rollout_ref.rollout.val_kwargs.n=256 \
