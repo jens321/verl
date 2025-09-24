@@ -4,8 +4,8 @@ MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 ROLLOUTS=8
 TEST_FREQ=20
 SAVE_FREQ=20
-RESUME_MODE=disable
-RESUME_FROM_PATH=''
+RESUME_MODE=resume_path # resume_path, disable
+RESUME_FROM_PATH='/scratch/gpfs/PLI/jtuyls/checkpoints/llm-exploration-rl-training/dapo-with-aime2425_grpo_seed_43_kl_0.0_ppo_epochs_1/global_step_210'
 USE_KL_LOSS=True
 PPO_EPOCHS=1
 SAVE_BEST_PASS_AT_1=False
@@ -35,7 +35,7 @@ if [ ${TASK} == "dapo-with-aime2425" ]; then
     PPO_MINI_BATCH_SIZE=128
 fi
 
-for SEED in 42; do
+for SEED in 43; do
     echo "Running job on ${TASK} with the following parameters:"
     echo "ALGORITHM: ${ALGORITHM}"
     echo "MODEL_PATH: ${MODEL_PATH}"

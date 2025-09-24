@@ -1,4 +1,4 @@
-TASK=dapo-with-aime2425 # math, gsm8k, countdown-4, dapo-with-aime2425
+TASK=countdown-4 # math, gsm8k, countdown-4, dapo-with-aime2425
 ALGORITHM=grpo
 MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
 BETA=0.25
@@ -35,7 +35,7 @@ if [ ${TASK} == "dapo-with-aime2425" ]; then
     PPO_MINI_BATCH_SIZE=128
 fi
 
-for SEED in 42; do
+for SEED in 45; do
     echo "Running job on ${TASK} with the following parameters:"
     echo "ALGORITHM: ${ALGORITHM}"
     echo "MODEL_PATH: ${MODEL_PATH}"

@@ -18,20 +18,22 @@ TASK=$4
 CHECKPOINT_SAVE_CONTENTS=$5
 
 train_path=$HOME/data/${TASK}/train.parquet
-test_path=$HOME/data/${TASK}/test.parquet
 
 train_files="['$train_path']"
-test_files="['$test_path']"
 
 if [ ${TASK} == "dapo-with-aime2425" ]; then
     MAX_PROMPT_LENGTH=$((1024 * 2))
     MAX_RESPONSE_LENGTH=$((1024 * 8))
     MAX_NUM_BATCHED_TOKENS=$((MAX_PROMPT_LENGTH + MAX_RESPONSE_LENGTH))
+    test_path=$HOME/data/${TASK}/dev.parquet
 else
     MAX_PROMPT_LENGTH=1024
     MAX_RESPONSE_LENGTH=1024
     MAX_NUM_BATCHED_TOKENS=8192
+    test_path=$HOME/data/${TASK}/test.parquet
 fi
+
+test_files="['$test_path']"
 
 PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True WANDB_ENTITY=jtuyls python3 -u -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
