@@ -100,7 +100,7 @@ def process_data(data: List[Dict[str, float]], algorithm: str) -> Tuple[Dict[int
         for k in pass_at_k.keys():
             assert len(pass_at_k[k]) == len(SEEDS)
 
-    pass_at_k_sem = {k: stats.sem(v) for k, v in pass_at_k.items()}
+    pass_at_k_sem = {k: stats.sem(v) for k, v in pass_at_k.items()} if algorithm != "untrained" else None
     pass_at_k = {k: np.mean(v) for k, v in pass_at_k.items()}
     
     return pass_at_k, pass_at_k_sem
@@ -175,8 +175,7 @@ def plot_arrow(
         fontsize=8
     )
 
-    if task == 'dapo-with-aime2425' and algo == 'grpo':
-        print(x_random_star, x_elliptical_star)
+    print(f"On {TASK_TO_NICE_NAME[task]}, the pass@{int(round(x_elliptical_star))} for elliptical is equivalent to the pass@{int(round(x_random_star))} for {algo}")
 
     # Draw vertical lines at x_random_star & x_elliptical_star, up to y_star
     if marker_delta != 0:
