@@ -199,9 +199,6 @@ trainer:
   # Validation frequency (in training iterations)
   test_freq: -1
 
-  # Frequency to validate on a random subset of the training data to get train pass@k metrics
-  pass_at_k_freq: -1
-
   # Number of iterations to warm up the critic before updating policy
   critic_warmup: 0
 
