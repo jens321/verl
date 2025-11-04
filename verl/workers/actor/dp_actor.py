@@ -61,8 +61,6 @@ class DataParallelPPOActor(BasePPOActor):
         self.actor_optimizer = actor_optimizer
         role = "Ref" if actor_optimizer is None else "Actor"
 
-        self.grad_steps = 0
-
         self.use_remove_padding = self.config.get("use_remove_padding", False)
         if torch.distributed.get_rank() == 0:
             print(f"{role} use_remove_padding={self.use_remove_padding}")
@@ -128,8 +126,7 @@ class DataParallelPPOActor(BasePPOActor):
                     ).transpose(0, 1)
 
                 if "image_bound" in multi_modal_inputs:
-                    from verl.utils.dataset.vision_utils import \
-                        process_multi_modal_inputs_for_minicpmo
+                    from verl.utils.dataset.vision_utils import process_multi_modal_inputs_for_minicpmo
 
                     multi_modal_inputs = process_multi_modal_inputs_for_minicpmo(
                         input_ids, attention_mask, position_ids, cu_seqlens, multi_modal_inputs
@@ -289,7 +286,7 @@ class DataParallelPPOActor(BasePPOActor):
             grad_norm = grad_norm.full_tensor()
 
         # if grad_norm is not finite, skip the update
-        if not torch.isfinite(grad_norm) or (self.config.grad_skip_thresh != -1 and grad_norm >= self.config.grad_skip_thresh):
+        if not torch.isfinite(grad_norm):
             print(f"WARN: rank {torch.distributed.get_rank()} grad_norm is not finite: {grad_norm}")
             self.actor_optimizer.zero_grad()
         else:
@@ -504,11 +501,7 @@ class DataParallelPPOActor(BasePPOActor):
                     append_to_dict(metrics, micro_batch_metrics)
 
                 grad_norm = self._optimizer_step()
-                self.grad_steps += 1
-                mini_batch_metrics = {
-                    "actor/grad_norm": grad_norm.detach().item(),
-                    "actor/grad_steps": self.grad_steps,
-                }
+                mini_batch_metrics = {"actor/grad_norm": grad_norm.detach().item()}
                 append_to_dict(metrics, mini_batch_metrics)
         self.actor_optimizer.zero_grad()
         return metrics
