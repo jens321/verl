@@ -54,11 +54,6 @@ def run_ppo(config, task_runner_class=None) -> None:
                 model paths, and training hyperparameters.
         task_runner_class: For recipe to change TaskRunner.
     """
-    # Set seeds
-    torch.manual_seed(config.trainer.seed)
-    np.random.seed(config.trainer.seed)
-    random.seed(config.trainer.seed)
-
     # Check if Ray is not initialized
     if not ray.is_initialized():
         # Initialize Ray with a local cluster configuration
@@ -213,10 +208,7 @@ class TaskRunner:
             use_legacy_worker_impl = config.trainer.get("use_legacy_worker_impl", "auto")
             if use_legacy_worker_impl in ["auto", "enable"]:
                 if config.reward_model.strategy in {"fsdp", "fsdp2"}:
-                    if config.reward_model.elliptical:
-                        from verl.workers.fsdp_workers import EllipticalRewardModelWorker as RewardModelWorker
-                    else:
-                        from verl.workers.fsdp_workers import RewardModelWorker
+                    from verl.workers.fsdp_workers import RewardModelWorker
                 elif config.reward_model.strategy == "megatron":
                     from verl.workers.megatron_workers import RewardModelWorker
                 else:
@@ -300,10 +292,7 @@ class TaskRunner:
 
         # Load the reward manager for training and validation.
         reward_fn = load_reward_manager(
-            config, tokenizer, num_examine=0
-        )
-        val_reward_fn = load_reward_manager(
-            config, tokenizer, num_examine=1, dev=True
+            config, tokenizer, num_examine=0, **config.reward_model.get("reward_kwargs", {})
         )
 
         resource_pool_manager = self.init_resource_pool_mgr(config)
