@@ -18,7 +18,6 @@ import os
 import warnings
 from dataclasses import asdict, dataclass
 from typing import Optional
-import glob
 
 import torch
 import torch.distributed
@@ -95,8 +94,6 @@ class FSDPCheckpointManager(BaseCheckpointManager):
             processing_class=processing_class,
             checkpoint_config=checkpoint_config,
         )
-
-        self.remove_previous_optim_and_extra = checkpoint_config.get("remove_previous_optim_and_extra", False)
 
     def load_checkpoint(self, local_path: str, hdfs_path: str = None, del_local_after_load=False):
         """
@@ -180,7 +177,7 @@ class FSDPCheckpointManager(BaseCheckpointManager):
         # wait for everyone to load checkpoints
         torch.distributed.barrier()
 
-    def save_checkpoint(self, local_path: str, hdfs_path: str = None, global_step: int = 0, max_ckpt_to_keep=None, force_save_optim: bool = False, force_save_extra: bool = False):
+    def save_checkpoint(self, local_path: str, hdfs_path: str = None, global_step: int = 0, max_ckpt_to_keep=None):
         """
         Save an FSDP checkpoint for this rank.
 
@@ -216,25 +213,13 @@ class FSDPCheckpointManager(BaseCheckpointManager):
             self.remove_previous_save_local_path(self.previous_saved_paths[:keep_start])
             self.previous_saved_paths = self.previous_saved_paths[keep_start:]
 
-        if (
-            self.rank == 0
-            and self.remove_previous_optim_and_extra
-            and len(self.previous_saved_paths) > 0
-        ):
-            prefix = self.previous_saved_paths[-1]
-            paths_to_remove = []
-            paths_to_remove.extend(glob.glob(os.path.join(prefix, "optim_world_size_*_rank_*.pt")))
-            paths_to_remove.extend(glob.glob(os.path.join(prefix, "extra_state_world_size_*_rank_*.pt")))
-            for path in paths_to_remove:
-                os.remove(path)
-
         local_path = local_mkdir_safe(local_path)
         torch.distributed.barrier()
 
         # check if the checkpoint_save_contents is valid
         if self.should_save_model:
             assert self.model is not None, "model must be provided when checkpoint_contents.save includes ['model']"
-        if self.should_save_optimizer or force_save_optim:
+        if self.should_save_optimizer:
             assert self.optimizer is not None, (
                 "optimizer must be provided when checkpoint_contents.save includes ['optimizer']"
             )
@@ -254,12 +239,12 @@ class FSDPCheckpointManager(BaseCheckpointManager):
                     torch.save(model_state_dict, model_path)
                     log_with_rank(f"Saved model to {os.path.abspath(model_path)}", rank=self.rank, logger=logger)
 
-                if self.should_save_optimizer or force_save_optim:
+                if self.should_save_optimizer:
                     optimizer_state_dict = self.optimizer.state_dict()
                     torch.save(optimizer_state_dict, optim_path)
                     log_with_rank(f"Saved optim to {os.path.abspath(optim_path)}", rank=self.rank, logger=logger)
 
-                if self.should_save_extra or force_save_extra:
+                if self.should_save_extra:
                     lr_scheduler_state_dict = self.lr_scheduler.state_dict() if self.lr_scheduler is not None else None
                     extra_state_dict = {
                         "lr_scheduler": lr_scheduler_state_dict,
@@ -379,5 +364,4 @@ class FSDPCheckpointManager(BaseCheckpointManager):
             # wait for rank0 to dump hf_model to local
             torch.distributed.barrier()
 
-        if "global_step_" in local_path:
-            self.previous_saved_paths.append(local_path)
+        self.previous_saved_paths.append(local_path)
