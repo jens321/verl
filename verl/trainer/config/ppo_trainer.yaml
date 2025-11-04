@@ -151,7 +151,7 @@ trainer:
   project_name: verl_examples
 
   # Experiment name for run identification in tracking tools
-  experiment_name: gsm8k_test
+  experiment_name: gsm8k
 
   # Logging backends to use: "console", "wandb", etc.
   logger: ["console", "wandb"]
