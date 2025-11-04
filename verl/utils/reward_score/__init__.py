@@ -59,9 +59,7 @@ def default_compute_score(
     elif data_source in ["math_dapo", "math", "math_dapo_reasoning"] or data_source.startswith("aime"):
         from . import math_dapo
 
-        # res = math_dapo.compute_score(solution_str, ground_truth)
-        from . import math_verify
-        res = math_verify.compute_score(solution_str, ground_truth)
+        res = math_dapo.compute_score(solution_str, ground_truth)
     elif data_source in [
         "numina_aops_forum",
         "numina_synthetic_math",
@@ -104,10 +102,6 @@ def default_compute_score(
         from . import search_r1_like_qa_em
 
         res = search_r1_like_qa_em.compute_score(solution_str, ground_truth)
-
-    elif 'Countdown' in data_source:
-        from . import count_down
-        res = count_down.compute_score(solution_str, ground_truth)
 
     else:
         raise NotImplementedError(f"Reward function is not implemented for {data_source=}")
