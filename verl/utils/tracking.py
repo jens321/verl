@@ -144,21 +144,6 @@ class Tracking:
             self.console_logger = LocalLogger(print_to_console=True)
             self.logger["console"] = self.console_logger
 
-        if "json_eval" in default_backend:
-            from verl.utils.logger import JsonEvalLogger
-
-            model_path = config['actor_rollout_ref']['model']['path']
-            if model_path.endswith('actor/hf'):
-                # Case where the model path is a saved checkpoint
-                resume_from_path = model_path.split('/')[-4:-2]
-                resume_from_path = '/'.join(resume_from_path)
-            else:
-                # Case where the model is pretrained model from huggingface
-                resume_from_path = ""
-
-            self.json_eval_logger = JsonEvalLogger(resume_from_path=resume_from_path, task=config['data']['task'])
-            self.logger["json_eval"] = self.json_eval_logger
-
         if "clearml" in default_backend:
             self.logger["clearml"] = ClearMLLogger(project_name, experiment_name, config)
 
