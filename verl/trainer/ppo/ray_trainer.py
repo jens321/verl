@@ -20,7 +20,6 @@ This trainer supports model-agonistic model initialization with huggingface
 
 import json
 import os
-import time
 import uuid
 from collections import defaultdict
 from copy import deepcopy
@@ -314,19 +313,6 @@ class RayPPOTrainer:
         self.reward_fn = reward_fn
         self.val_reward_fn = val_reward_fn
 
-        self.drop_samples_with_no_adv = config.data.drop_samples_with_no_adv
-
-        if config.data.task in ['math', 'gsm8k']:
-            self.prompt_idx_to_gpt_4_pass_at_1 = dict()
-            path = os.path.join(DATA_DIR, self.config.data.task, "gpt-4o-mini")
-            for file in tqdm(os.listdir(path), desc="Loading GPT-4o-mini pass@1 ..."):
-                if file.endswith(".json"):
-                    with open(os.path.join(path, file), "r") as f:
-                        data = json.load(f)
-                    prompt_idx = data[0]['prompt_idx']  
-                    results = [d['strict_correct'] if 'strict_correct' in d else d['correct'] for d in data]
-                    self.prompt_idx_to_gpt_4_pass_at_1[prompt_idx] = sum(results) / len(results)
-
         self.hybrid_engine = config.actor_rollout_ref.hybrid_engine
         assert self.hybrid_engine, "Currently, only support hybrid engine"
 
@@ -381,14 +367,12 @@ class RayPPOTrainer:
                 self.processor,
                 max_samples=self.config.data.get("val_max_samples", -1),
             )
-        
         self.train_dataset, self.val_dataset = train_dataset, val_dataset
 
         if train_sampler is None:
             train_sampler = create_rl_sampler(self.config.data, self.train_dataset)
         if collate_fn is None:
-            from verl.utils.dataset.rl_dataset import \
-                collate_fn as default_collate_fn
+            from verl.utils.dataset.rl_dataset import collate_fn as default_collate_fn
 
             collate_fn = default_collate_fn
 
@@ -415,43 +399,6 @@ class RayPPOTrainer:
             drop_last=False,
             collate_fn=collate_fn,
         )
-
-        if self.config.trainer.val_hard_subset:
-            hard_val_dataset = create_rl_dataset(
-                self.config.data.val_files, self.config.data, self.tokenizer, self.processor, filter_only_hard_prompts=True
-            )
-            self.hard_val_dataset = hard_val_dataset
-
-            hard_val_batch_size = self.config.data.hard_val_batch_size
-            if hard_val_batch_size is None:
-                hard_val_batch_size = len(self.hard_val_dataset)
-
-            self.hard_val_dataloader = StatefulDataLoader(
-                dataset=self.hard_val_dataset,
-                batch_size=hard_val_batch_size,
-                num_workers=num_workers,
-                shuffle=self.config.data.get("validation_shuffle", True),
-                drop_last=False,
-                collate_fn=collate_fn,
-            )
-
-            assert len(self.hard_val_dataloader) >= 1, "Hard validation dataloader is empty!"
-
-        if self.config.trainer.pass_at_k_freq > 0:
-            random_subset_train_dataset = create_rl_dataset(
-                self.config.data.train_files, self.config.data, self.tokenizer, self.processor, random_subset_size=self.config.trainer.train_random_subset_size
-            )
-            self.random_subset_train_dataset = random_subset_train_dataset
-
-            self.random_subset_train_dataloader = StatefulDataLoader(
-                dataset=self.random_subset_train_dataset,
-                batch_size=len(self.random_subset_train_dataset),
-                num_workers=num_workers,
-                drop_last=False,
-                collate_fn=collate_fn,
-            )
-
-            assert len(self.random_subset_train_dataloader) >= 1, "Random subset train dataloader is empty!"
 
         assert len(self.train_dataloader) >= 1, "Train dataloader is empty!"
         assert len(self.val_dataloader) >= 1, "Validation dataloader is empty!"
@@ -593,7 +540,7 @@ class RayPPOTrainer:
         sample_uids = []
 
         for test_data in self.val_dataloader:
-            test_batch = DataProto.from_single_dict(test_data)            
+            test_batch = DataProto.from_single_dict(test_data)
 
             if "uid" not in test_batch.non_tensor_batch:
                 test_batch.non_tensor_batch["uid"] = np.array(
@@ -604,8 +551,6 @@ class RayPPOTrainer:
             test_batch = test_batch.repeat(
                 repeat_times=self.config.actor_rollout_ref.rollout.val_kwargs.n, interleave=True
             )
-
-            problem_idxs.append(test_batch.non_tensor_batch["index"])
 
             # we only do validation on rule-based rm
             if self.config.reward_model.enable and test_batch[0].non_tensor_batch["reward_model"]["style"] == "model":
@@ -733,7 +678,6 @@ class RayPPOTrainer:
         self.resource_pool_manager.create_resource_pool()
 
         self.resource_pool_to_cls = {pool: {} for pool in self.resource_pool_manager.resource_pool_dict.values()}
-        val_only = self.config.trainer.get("val_only", False)
 
         # create actor and rollout
         if self.hybrid_engine:
@@ -748,14 +692,14 @@ class RayPPOTrainer:
             raise NotImplementedError
 
         # create critic
-        if self.use_critic and not val_only:
+        if self.use_critic:
             resource_pool = self.resource_pool_manager.get_resource_pool(Role.Critic)
             critic_cfg = omega_conf_to_dataclass(self.config.critic)
             critic_cls = RayClassWithInitArgs(cls=self.role_worker_mapping[Role.Critic], config=critic_cfg)
             self.resource_pool_to_cls[resource_pool][str(Role.Critic)] = critic_cls
 
         # create reference policy if needed
-        if self.use_reference_policy and not val_only:
+        if self.use_reference_policy:
             resource_pool = self.resource_pool_manager.get_resource_pool(Role.RefPolicy)
             ref_policy_cls = RayClassWithInitArgs(
                 self.role_worker_mapping[Role.RefPolicy],
@@ -764,9 +708,8 @@ class RayPPOTrainer:
             )
             self.resource_pool_to_cls[resource_pool][str(Role.RefPolicy)] = ref_policy_cls
 
-
         # create a reward model if reward_fn is None
-        if self.use_rm and not val_only:
+        if self.use_rm:
             # we create a RM here
             resource_pool = self.resource_pool_manager.get_resource_pool(Role.RewardModel)
             rm_cls = RayClassWithInitArgs(self.role_worker_mapping[Role.RewardModel], config=self.config.reward_model)
@@ -832,32 +775,13 @@ class RayPPOTrainer:
                 config=self.config, worker_group=self.actor_rollout_wg, rm_wg=self.rm_wg
             )
 
-    def _save_checkpoint(self, folder_prefix: str = "global_step", force_save_optim: bool = False, force_save_extra: bool = False):
+    def _save_checkpoint(self):
         from verl.utils.fs import local_mkdir_safe
 
         # path: given_path + `/global_step_{global_steps}` + `/actor`
-        if folder_prefix == "global_step":
-            local_global_step_folder = os.path.join(
-                self.config.trainer.default_local_dir, f"global_step_{self.global_steps}"
-            )
-        elif folder_prefix == "best_pass@1":
-            local_global_step_folder = os.path.join(
-                self.config.trainer.default_local_dir, f"best_pass@1"
-            )
-        elif folder_prefix == "best_hard_pass@1":
-            local_global_step_folder = os.path.join(
-                self.config.trainer.default_local_dir, f"best_hard_pass@1"
-            )
-        elif folder_prefix == "best_pass@64":
-            local_global_step_folder = os.path.join(
-                self.config.trainer.default_local_dir, f"best_pass@64"
-            )
-        elif folder_prefix == "best_hard_pass@64":
-            local_global_step_folder = os.path.join(
-                self.config.trainer.default_local_dir, f"best_hard_pass@64"
-            )
-        else:
-            raise ValueError(f"Invalid folder prefix: {folder_prefix}")
+        local_global_step_folder = os.path.join(
+            self.config.trainer.default_local_dir, f"global_step_{self.global_steps}"
+        )
 
         print(f"local_global_step_folder: {local_global_step_folder}")
         actor_local_path = os.path.join(local_global_step_folder, "actor")
@@ -882,12 +806,7 @@ class RayPPOTrainer:
         )
 
         self.actor_rollout_wg.save_checkpoint(
-            actor_local_path, 
-            actor_remote_path, 
-            self.global_steps, 
-            max_ckpt_to_keep=max_actor_ckpt_to_keep, 
-            force_save_optim=force_save_optim, 
-            force_save_extra=force_save_extra
+            actor_local_path, actor_remote_path, self.global_steps, max_ckpt_to_keep=max_actor_ckpt_to_keep
         )
 
         if self.use_critic:
@@ -916,20 +835,6 @@ class RayPPOTrainer:
         with open(local_latest_checkpointed_iteration, "w") as f:
             f.write(str(self.global_steps))
 
-        # Write best metric to global steps
-        local_best_metric_to_global_step = os.path.join(
-            self.config.trainer.default_local_dir, "best_metric_to_global_step.json"
-        )
-        with open(local_best_metric_to_global_step, "w") as f:
-            json.dump(self.best_dev_pass_at_k_to_global_step, f)
-
-        # Write best hard metric to global steps
-        local_best_hard_metric_to_global_step = os.path.join(
-            self.config.trainer.default_local_dir, "best_hard_metric_to_global_step.json"
-        )
-        with open(local_best_hard_metric_to_global_step, "w") as f:
-            json.dump(self.best_dev_hard_pass_at_k_to_global_step, f)
-
     def _load_checkpoint(self):
         if self.config.trainer.resume_mode == "disable":
             # NOTE: while there is no checkpoint to load, we still need to offload the model and optimizer to CPU
@@ -955,20 +860,16 @@ class RayPPOTrainer:
         else:
             if self.config.trainer.resume_mode == "resume_path":
                 assert isinstance(self.config.trainer.resume_from_path, str), "resume ckpt must be str type"
-                # assert "global_step_" in self.config.trainer.resume_from_path, (
-                #     "resume ckpt must specify the global_steps"
-                # )
+                assert "global_step_" in self.config.trainer.resume_from_path, (
+                    "resume ckpt must specify the global_steps"
+                )
                 global_step_folder = self.config.trainer.resume_from_path
                 if not os.path.isabs(global_step_folder):
                     working_dir = os.getcwd()
                     global_step_folder = os.path.join(working_dir, global_step_folder)
         print(f"Load from checkpoint folder: {global_step_folder}")
         # set global step
-        if "global_step_" in global_step_folder:
-            self.global_steps = int(global_step_folder.split("global_step_")[-1])
-        else:
-            print("WARNING: resume_from_path does not specify the global_steps")
-            self.global_steps = 0
+        self.global_steps = int(global_step_folder.split("global_step_")[-1])
 
         print(f"Setting global step to {self.global_steps}")
         print(f"Resuming from {global_step_folder}")
@@ -1112,40 +1013,6 @@ class RayPPOTrainer:
         # Return unchanged batch and empty metrics if IS is disabled
         return batch, {}
 
-    def _update_best_pass_at(self, val_metrics, pass_at_k: int) -> bool:
-        """
-        Save checkpoint if the validation metrics are the best.
-
-        Args:
-            val_metrics: The validation metrics.
-            pass_at_k: The pass@k to use for determining whether to save the checkpoint.
-        """
-        for k in val_metrics.keys():
-            if k.endswith(f"reward/pass@{pass_at_k}/mean"):
-                if val_metrics[k] > self.best_dev_pass_at_k[pass_at_k]:
-                    self.best_dev_pass_at_k[pass_at_k] = val_metrics[k]
-                    self.best_dev_pass_at_k_to_global_step[pass_at_k] = self.global_steps
-                    return True
-                
-        return False
-    
-    def _update_best_hard_pass_at(self, val_metrics, pass_at_k: int) -> bool:
-        """
-        Save checkpoint if the validation metrics are the best.
-
-        Args:
-            val_metrics: The validation metrics.
-            pass_at_k: The pass@k to use for determining whether to save the checkpoint.
-        """
-        for k in val_metrics.keys():
-            if k.endswith(f"reward-hard-subset-perc-10/pass@{pass_at_k}/mean"):
-                if val_metrics[k] > self.best_dev_hard_pass_at_k[pass_at_k]:
-                    self.best_dev_hard_pass_at_k[pass_at_k] = val_metrics[k]
-                    self.best_dev_hard_pass_at_k_to_global_step[pass_at_k] = self.global_steps
-                    return True
-                
-        return False
-
     def fit(self):
         """
         The training loop of PPO.
@@ -1164,29 +1031,7 @@ class RayPPOTrainer:
             config=OmegaConf.to_container(self.config, resolve=True),
         )
 
-        # global vars to track during training
         self.global_steps = 0
-        self.highest_train_pass_at_k = 0
-        self.pass_at_k_patience = 0
-
-        self.best_dev_pass_at_k = {
-            1: 0,
-            64: 0,
-        }
-
-        self.best_dev_hard_pass_at_k = {
-            1: 0,
-            64: 0,
-        }
-
-        self.best_dev_pass_at_k_to_global_step = {
-            1: 0,
-            64: 0,
-        }
-        self.best_dev_hard_pass_at_k_to_global_step = {
-            1: 0,
-            64: 0,
-        }
 
         # load checkpoint before doing anything
         self._load_checkpoint()
@@ -1194,35 +1039,10 @@ class RayPPOTrainer:
         # perform validation before training
         # currently, we only support validation using the reward_function.
         if self.val_reward_fn is not None and self.config.trainer.get("val_before_train", True):
-            # full dataset validation
-            start = time.time()
-            val_metrics = self._validate(self.val_dataloader, self.config.actor_rollout_ref.rollout.val_kwargs)
+            val_metrics = self._validate()
             assert val_metrics, f"{val_metrics=}"
-            end = time.time()
-            print(f"Full dataset validation time: {end - start} seconds")
-
-            # Initialize the best validation metrics for pass@k before training
-            self._update_best_pass_at(val_metrics, 1)
-            self._update_best_pass_at(val_metrics, 64)
-
-            # Initialize the best hard validation metrics for pass@k before training
-            self._update_best_hard_pass_at(val_metrics, 1)
-            self._update_best_hard_pass_at(val_metrics, 64)
-
-            val_metrics["best/pass@1"] = self.best_dev_pass_at_k[1]
-            val_metrics["best/pass@64"] = self.best_dev_pass_at_k[64]
-            val_metrics["best/hard_pass@1"] = self.best_dev_hard_pass_at_k[1]
-            val_metrics["best/hard_pass@64"] = self.best_dev_hard_pass_at_k[64]
-
-            # hard dataset validation
-            if self.config.trainer.val_hard_subset:
-                hard_val_metrics = self._validate(self.hard_val_dataloader, self.config.actor_rollout_ref.rollout.hard_val_kwargs, hard_validate=True)
-                assert hard_val_metrics, f"{hard_val_metrics=}"
-                val_metrics.update(hard_val_metrics)
-
             pprint(f"Initial validation metrics: {val_metrics}")
             logger.log(data=val_metrics, step=self.global_steps)
-
             if self.config.trainer.get("val_only", False):
                 return
 
@@ -1316,16 +1136,6 @@ class RayPPOTrainer:
                     batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True)
                     batch = batch.union(gen_batch_output)
 
-                    # Potentially drop samples with no advantage
-                    if self.drop_samples_with_no_adv:
-                        filtered_batch = self.drop_no_adv_samples_from_batch(batch)
-                        dynamic_batch_collection.append(filtered_batch)
-                        if sum([len(b) for b in dynamic_batch_collection]) < self.config.data.train_batch_size * self.config.actor_rollout_ref.rollout.n:
-                            continue
-                        else:
-                            batch = DataProto.concat(dynamic_batch_collection)
-                            dynamic_batch_collection = []
-
                     if "response_mask" not in batch.batch.keys():
                         batch.batch["response_mask"] = compute_response_mask(batch)
                     # Balance the number of valid tokens across DP ranks.
@@ -1341,12 +1151,7 @@ class RayPPOTrainer:
                     with marked_timer("reward", timing_raw, color="yellow"):
                         # compute reward model score
                         if self.use_rm and "rm_scores" not in batch.batch.keys():
-                            if self.config.reward_model.elliptical.enable:
-                                hidden_states = self.rm_wg.compute_hidden_states(batch)
-                                batch = batch.union(hidden_states)
-                                reward_tensor = self.rm_wg.compute_rm_score(batch)
-                            else:
-                                reward_tensor = self.rm_wg.compute_rm_score(batch)
+                            reward_tensor = self.rm_wg.compute_rm_score(batch)
                             batch = batch.union(reward_tensor)
 
                         if self.config.reward_model.launch_reward_fn_async:
@@ -1373,22 +1178,6 @@ class RayPPOTrainer:
                             from verl.utils.debug.metrics import calculate_debug_metrics
 
                             metrics.update(calculate_debug_metrics(batch))
-
-                    with marked_timer("reward", timing_raw, color="yellow"):
-                        # compute reward model score
-                        if self.use_rm:
-                            if self.config.reward_model.elliptical.enable:
-                                hidden_states = self.rm_wg.compute_hidden_states(batch)
-                                batch = batch.union(hidden_states)
-                                reward_tensor = self.rm_wg.compute_rm_score(batch)
-                            else:
-                                reward_tensor = self.rm_wg.compute_rm_score(batch)
-                            batch = batch.union(reward_tensor)
-
-                        if self.config.reward_model.launch_reward_fn_async:
-                            future_reward = compute_reward_async.remote(batch, self.config, self.tokenizer)
-                        else:
-                            reward_tensor, reward_extra_infos_dict = compute_reward(batch, self.reward_fn)
 
                     if self.use_reference_policy:
                         # compute reference log_prob
@@ -1524,14 +1313,7 @@ class RayPPOTrainer:
                     }
                 )
                 # collect metrics
-                metrics.update(
-                    compute_data_metrics(
-                        batch=batch,
-                        use_critic=self.use_critic,
-                        elliptical=self.config.reward_model.elliptical.enable,
-                        unlikely=self.config.reward_model.reward_manager == "unlikely",
-                    )
-                )
+                metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
                 metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
                 # TODO: implement actual tflpo and theoretical tflpo
                 n_gpus = self.resource_pool_manager.get_n_gpus()
