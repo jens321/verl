@@ -76,50 +76,8 @@ def _compute_response_info(batch: DataProto) -> dict[str, Any]:
         response_length=response_length,
     )
 
-def _compute_three_case_stats(data: DataProto, extrinsic_reward_tensor: torch.Tensor) -> dict:
-    """
-    Compute the fraction of samples that have no rollouts correct, some rollouts correct, and all rollouts correct.
 
-    Args:
-        data (DataProto): The data proto containing the batch data.
-        extrinsic_reward_tensor (torch.Tensor): The extrinsic reward tensor.
-
-    Returns:
-        dict[str, float]: A dictionary containing the fraction of samples that have no rollouts correct, 
-        some rollouts correct, and all rollouts correct.
-    """
-    no_rollouts_correct = 0
-    some_rollouts_correct = 0
-    all_rollouts_correct = 0
-
-    visited_uids = set()
-    for uid in data.non_tensor_batch["uid"]:
-        if uid in visited_uids:
-            continue
-        
-        visited_uids.add(uid)
-        mask = torch.from_numpy(data.non_tensor_batch["uid"] == uid)
-
-        # Split into three cases
-        if extrinsic_reward_tensor[mask].sum() == 0:
-            no_rollouts_correct += 1
-        elif extrinsic_reward_tensor[mask].sum() == mask.sum():
-            all_rollouts_correct += 1
-        elif extrinsic_reward_tensor[mask].sum() > 0 and extrinsic_reward_tensor[mask].sum() < mask.sum():
-            some_rollouts_correct += 1
-        else:
-            raise ValueError(f"Invalid extrinsic reward tensor: {extrinsic_reward_tensor[mask].sum()}")
-        
-    # Sanity checks
-    assert len(visited_uids) == no_rollouts_correct + some_rollouts_correct + all_rollouts_correct
-    
-    return {
-        "no_rollouts_correct_frac": no_rollouts_correct / len(visited_uids),
-        "some_rollouts_correct_frac": some_rollouts_correct / len(visited_uids),
-        "all_rollouts_correct_frac": all_rollouts_correct / len(visited_uids),
-    }
-
-def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: bool = False, unlikely: bool = False) -> dict[str, Any]:
+def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str, Any]:
     """
     Computes various metrics from a batch of data for PPO training.
 
@@ -130,8 +88,6 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
     Args:
         batch: A DataProto object containing batch data with token-level scores, rewards, advantages, etc.
         use_critic: Whether to include critic-specific metrics. Defaults to True.
-        elliptical: Whether to include elliptical-specific metrics. Defaults to False.
-        unlikely: Whether to include unlikely-specific metrics. Defaults to False.
 
     Returns:
         A dictionary of metrics including:
@@ -147,19 +103,6 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
     """
     sequence_score = batch.batch["token_level_scores"].sum(-1)
     sequence_reward = batch.batch["token_level_rewards"].sum(-1)
-
-    if elliptical:
-        sequence_intrinsic_reward = batch.non_tensor_batch["intrinsic_reward"].sum(-1)
-        sequence_beta_scaled_intrinsic_reward = batch.non_tensor_batch["beta_scaled_intrinsic_reward"].sum(-1)
-        sequence_extrinsic_reward = batch.non_tensor_batch["extrinsic_reward"].sum(-1)
-        sequence_total_reward = batch.non_tensor_batch["total_reward"].sum(-1)
-        sequence_raw_bonuses = batch.non_tensor_batch["raw_bonuses"].sum(-1)
-
-        three_case_stats = _compute_three_case_stats(batch, batch.non_tensor_batch["extrinsic_reward"])
-
-    if unlikely:
-        sequence_extrinsic_reward = batch.non_tensor_batch["extrinsic_reward"].sum(-1)
-        sequence_unlikely_scaled_extrinsic_reward = batch.non_tensor_batch["unlikely_scaled_extrinsic_reward"].sum(-1)
 
     advantages = batch.batch["advantages"]
     returns = batch.batch["returns"]
@@ -240,57 +183,6 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
                 "critic/vf_explained_var": (1.0 - return_diff_var / (return_var + 1e-5)).detach().item(),
             }
             if use_critic
-            else {}
-        ),
-        **(
-            {
-                # raw bonuses
-                "critic/raw_bonuses/mean": np.mean(sequence_raw_bonuses).item(),
-                "critic/raw_bonuses/max": np.max(sequence_raw_bonuses).item(),
-                "critic/raw_bonuses/min": np.min(sequence_raw_bonuses).item(),
-                "critic/raw_bonuses/std": np.std(sequence_raw_bonuses).item(),
-                # intrinsic_reward
-                "critic/intrinsic_reward/mean": np.mean(sequence_intrinsic_reward).item(),
-                "critic/intrinsic_reward/max": np.max(sequence_intrinsic_reward).item(),
-                "critic/intrinsic_reward/min": np.min(sequence_intrinsic_reward).item(),
-                "critic/intrinsic_reward/std": np.std(sequence_intrinsic_reward).item(),
-                # beta_scaled_intrinsic_reward
-                "critic/beta_scaled_intrinsic_reward/mean": np.mean(sequence_beta_scaled_intrinsic_reward).item(),
-                "critic/beta_scaled_intrinsic_reward/max": np.max(sequence_beta_scaled_intrinsic_reward).item(),
-                "critic/beta_scaled_intrinsic_reward/min": np.min(sequence_beta_scaled_intrinsic_reward).item(),
-                "critic/beta_scaled_intrinsic_reward/std": np.std(sequence_beta_scaled_intrinsic_reward).item(),
-                # extrinsic_reward
-                "critic/extrinsic_reward/mean": np.mean(sequence_extrinsic_reward).item(),
-                "critic/extrinsic_reward/max": np.max(sequence_extrinsic_reward).item(),
-                "critic/extrinsic_reward/min": np.min(sequence_extrinsic_reward).item(),
-                "critic/extrinsic_reward/std": np.std(sequence_extrinsic_reward).item(),
-                # three_case_stats
-                "critic/extrinsic_reward/no_rollouts_correct_frac": three_case_stats["no_rollouts_correct_frac"],
-                "critic/extrinsic_reward/some_rollouts_correct_frac": three_case_stats["some_rollouts_correct_frac"],
-                "critic/extrinsic_reward/all_rollouts_correct_frac": three_case_stats["all_rollouts_correct_frac"],
-                # total_reward
-                "critic/total_reward/mean": np.mean(sequence_total_reward).item(),
-                "critic/total_reward/max": np.max(sequence_total_reward).item(),
-                "critic/total_reward/min": np.min(sequence_total_reward).item(),
-                "critic/total_reward/std": np.std(sequence_total_reward).item(),
-            }
-            if elliptical
-            else {}
-        ),
-        **(
-            {
-                # extrinsic_reward
-                "critic/extrinsic_reward/mean": np.mean(sequence_extrinsic_reward).item(),
-                "critic/extrinsic_reward/max": np.max(sequence_extrinsic_reward).item(),
-                "critic/extrinsic_reward/min": np.min(sequence_extrinsic_reward).item(),
-                "critic/extrinsic_reward/std": np.std(sequence_extrinsic_reward).item(),
-                # unlikely_scaled_extrinsic_reward
-                "critic/unlikely_scaled_extrinsic_reward/mean": np.mean(sequence_unlikely_scaled_extrinsic_reward).item(),
-                "critic/unlikely_scaled_extrinsic_reward/max": np.max(sequence_unlikely_scaled_extrinsic_reward).item(),
-                "critic/unlikely_scaled_extrinsic_reward/min": np.min(sequence_unlikely_scaled_extrinsic_reward).item(),
-                "critic/unlikely_scaled_extrinsic_reward/std": np.std(sequence_unlikely_scaled_extrinsic_reward).item(),
-            }
-            if unlikely
             else {}
         ),
         # response length
@@ -486,11 +378,6 @@ def calc_maj_val(data: list[dict[str, Any]], vote_key: str, val_key: str) -> flo
 
     return maj_val
 
-def comb_estimator(n: int, c: int, k: int) -> float:
-    """Calculates 1 - comb(n - c, k) / comb(n, k)."""
-    if n - c < k:
-        return 1.0
-    return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
 
 def process_validation_metrics(
     data_sources: list[str], sample_uids: list[str], infos_dict: dict[str, list[Any]], seed: int = 42
@@ -542,7 +429,7 @@ def process_validation_metrics(
         uid = sample_uids[sample_idx]
         var2vals = data_src2uid2var2vals[data_source][uid]
         for var_name, var_vals in infos_dict.items():
-            var2vals[var_name + metric_postfix].append(var_vals[sample_idx])
+            var2vals[var_name].append(var_vals[sample_idx])
 
     # Calculate metrics for each group
     data_src2uid2var2metric = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
@@ -555,7 +442,6 @@ def process_validation_metrics(
                 metric = {}
                 n_resps = len(var_vals)
                 metric[f"mean@{n_resps}"] = np.mean(var_vals)
-                metric["pass@1/mean"] = comb_estimator(n_resps, np.sum(var_vals), 1)
 
                 if n_resps > 1:
                     metric[f"std@{n_resps}"] = np.std(var_vals)
@@ -568,12 +454,11 @@ def process_validation_metrics(
                     ns.append(n_resps)
 
                     for n in ns:
-                        # [(bon_mean, bon_std), (won_mean, won_std)] = bootstrap_metric(
-                        #     data=var_vals, subset_size=n, reduce_fns=[np.max, np.min], seed=seed
-                        # )
-                        # metric[f"best@{n}/mean"], metric[f"best@{n}/std"] = bon_mean, bon_std
-                        # metric[f"worst@{n}/mean"], metric[f"worst@{n}/std"] = won_mean, won_std
-                        metric[f"pass@{n}/mean"] = comb_estimator(n_resps, np.sum(var_vals), n)
+                        [(bon_mean, bon_std), (won_mean, won_std)] = bootstrap_metric(
+                            data=var_vals, subset_size=n, reduce_fns=[np.max, np.min], seed=seed
+                        )
+                        metric[f"best@{n}/mean"], metric[f"best@{n}/std"] = bon_mean, bon_std
+                        metric[f"worst@{n}/mean"], metric[f"worst@{n}/std"] = won_mean, won_std
                         if var2vals.get("pred", None) is not None:
                             vote_data = [
                                 {"val": val, "pred": pred} for val, pred in zip(var_vals, var2vals["pred"], strict=True)
