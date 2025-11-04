@@ -156,7 +156,6 @@ def load_reward_manager(
         else:
             final_compute_score = default_compute_score
 
-    reward_kwargs = config.reward_model.get("reward_kwargs", {}).get(reward_manager_name, {})
     # Instantiate and return the reward manager with the specified parameters
     return reward_manager_cls(
         tokenizer=tokenizer,
