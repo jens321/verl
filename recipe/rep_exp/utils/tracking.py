@@ -145,7 +145,7 @@ class Tracking:
             self.logger["console"] = self.console_logger
 
         if "json_eval" in default_backend:
-            from verl.utils.logger import JsonEvalLogger
+            from .aggregate_logger import JsonEvalLogger
 
             model_path = config["actor_rollout_ref"]["model"]["path"]
             if model_path.endswith("actor/hf"):

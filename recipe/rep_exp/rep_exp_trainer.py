@@ -344,7 +344,7 @@ class RayRepExpTrainer(RayPPOTrainer):
         """
         from omegaconf import OmegaConf
 
-        from verl.utils.tracking import Tracking
+        from .utils.tracking import Tracking
 
         logger = Tracking(
             project_name=self.config.trainer.project_name,
