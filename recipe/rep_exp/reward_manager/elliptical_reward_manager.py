@@ -35,7 +35,7 @@ class EllipticalRewardManager(NaiveRewardManager):
         turn_off_elliptical_if_some_correct: bool = False,
         turn_off_elliptical_if_all_correct: bool = False,
         turn_off_elliptical_if_rollout_incorrect: bool = False,
-        alpha: float = 0.0,
+        alpha: float = 1.0,
     ) -> None:
         """
         Initialize the NaiveRewardManager instance.
