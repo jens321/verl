@@ -39,14 +39,17 @@ from verl.utils.fsdp_utils import (
     fsdp_version,
     get_fsdp_wrap_policy,
     get_init_weight_context_manager,
+    get_shard_placement_fn,
     init_fn,
 )
+from verl.utils.profiler import DistProfiler
 from verl.workers.fsdp_workers import RewardModelWorker, get_sharding_strategy
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
 
 device_name = get_device_name()
+
 
 class EllipticalRewardModelWorker(RewardModelWorker):
     def __init__(self, config):
@@ -64,7 +67,7 @@ class EllipticalRewardModelWorker(RewardModelWorker):
     @staticmethod
     def _construct_sparse_matrix(features: torch.Tensor, sparse_dim: int) -> torch.Tensor:
         from sklearn.random_projection import SparseRandomProjection
-        
+
         sparse_proj = SparseRandomProjection(sparse_dim, density="auto")
         sparse_proj.fit(features)
         sparse_matrix = sparse_proj.components_
@@ -74,11 +77,7 @@ class EllipticalRewardModelWorker(RewardModelWorker):
         indices = torch.LongTensor(np.array([sparse_matrix_coo.row, sparse_matrix_coo.col]))
         values = torch.FloatTensor(sparse_matrix_coo.data)
 
-        sparse_mat = torch.sparse_coo_tensor(
-            indices,
-            values,
-            [sparse_dim, features.shape[1]]
-        ).t()
+        sparse_mat = torch.sparse_coo_tensor(indices, values, [sparse_dim, features.shape[1]]).t()
 
         return sparse_mat
 
@@ -119,7 +118,7 @@ class EllipticalRewardModelWorker(RewardModelWorker):
                 torch_dtype=torch.bfloat16,
                 attn_implementation="flash_attention_2",
                 trust_remote_code=trust_remote_code,
-            )   
+            )
 
             apply_monkey_patch(
                 model=reward_module,
@@ -154,6 +153,7 @@ class EllipticalRewardModelWorker(RewardModelWorker):
                 "mesh": fsdp_mesh,
                 "offload_policy": cpu_offload,
                 "reshard_after_forward": config.model.fsdp_config.reshard_after_forward,
+                "shard_placement_fn": get_shard_placement_fn(fsdp_size=self.device_mesh.shape[-1]),
             }
             full_state = reward_module.state_dict()
             apply_fsdp2(reward_module, fsdp_kwargs, config.model.fsdp_config)
@@ -163,18 +163,6 @@ class EllipticalRewardModelWorker(RewardModelWorker):
         return reward_module
 
     def _forward_micro_batch(self, micro_batch, start_of_response: int):
-        if is_cuda_available:
-            from flash_attn.bert_padding import index_first_axis, pad_input, rearrange, unpad_input
-        elif is_npu_available:
-            from transformers.integrations.npu_flash_attention import (
-                index_first_axis,
-                pad_input,
-                rearrange,
-                unpad_input,
-            )
-
-        from verl.utils.ulysses import gather_outpus_and_unpad, ulysses_pad_and_slice_inputs
-
         with torch.no_grad(), torch.autocast(device_type=device_name, dtype=torch.bfloat16):
             input_ids = micro_batch["input_ids"]
             batch_size, seqlen = input_ids.shape
@@ -184,44 +172,7 @@ class EllipticalRewardModelWorker(RewardModelWorker):
                 position_ids = position_ids.transpose(0, 1)  # (bsz, 3, seqlen) -> (3, bsz, seqlen)
 
             if self.use_remove_padding:
-                input_ids_rmpad, indices, *_ = unpad_input(
-                    input_ids.unsqueeze(-1), attention_mask
-                )  # input_ids_rmpad (total_nnz, ...)
-                input_ids_rmpad = input_ids_rmpad.transpose(0, 1)  # (1, total_nnz)
-
-                # unpad the position_ids to align the rotary
-                if position_ids.dim() == 3:
-                    position_ids_rmpad = (
-                        index_first_axis(rearrange(position_ids, "c b s ... -> (b s) c ..."), indices)
-                        .transpose(0, 1)
-                        .unsqueeze(1)
-                    )  # (3, bsz, seqlen) -> (3, 1, bsz * seqlen)
-                else:
-                    position_ids_rmpad = index_first_axis(
-                        rearrange(position_ids.unsqueeze(-1), "b s ... -> (b s) ..."), indices
-                    ).transpose(0, 1)
-
-                # pad and slice the inputs if sp > 1
-                if self.ulysses_sequence_parallel_size > 1:
-                    input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad_and_slice_inputs(
-                        input_ids_rmpad, position_ids_rmpad, sp_size=self.ulysses_sequence_parallel_size
-                    )
-
-                # only pass input_ids and position_ids to enable flash_attn_varlen
-                output = self.reward_module(
-                    input_ids=input_ids_rmpad, attention_mask=None, position_ids=position_ids_rmpad, use_cache=False
-                )
-                reward_rmpad = output.logits
-                reward_rmpad = reward_rmpad.squeeze(0)  # (total_nnz)
-
-                # gather output if sp > 1
-                if self.ulysses_sequence_parallel_size > 1:
-                    reward_rmpad = gather_outpus_and_unpad(
-                        reward_rmpad, gather_dim=0, unpad_dim=0, padding_size=pad_size
-                    )
-
-                # pad it back
-                rm_score = pad_input(reward_rmpad, indices=indices, batch=batch_size, seqlen=seqlen).squeeze(-1)
+                raise NotImplementedError("Remove padding is not implemented for elliptical reward model")
             else:
                 output = self.reward_module(
                     input_ids=input_ids, attention_mask=attention_mask, position_ids=position_ids, use_cache=False
@@ -230,7 +181,9 @@ class EllipticalRewardModelWorker(RewardModelWorker):
                 sequence_lengths = attention_mask[:, start_of_response:].sum(dim=1)
                 mean_hidden_states = []
                 for i, seq_len in enumerate(sequence_lengths):
-                    mean_hidden_states.append(output.last_hidden_state[i, start_of_response:start_of_response+seq_len].mean(dim=0))
+                    mean_hidden_states.append(
+                        output.last_hidden_state[i, start_of_response : start_of_response + seq_len].mean(dim=0)
+                    )
                 mean_hidden_states = torch.stack(mean_hidden_states)
 
             return mean_hidden_states
@@ -258,13 +211,10 @@ class EllipticalRewardModelWorker(RewardModelWorker):
             rm_data = DataProto.from_dict(rm_inputs)
 
         # Support all hardwares
-        rm_data.batch = rm_data.batch.to(get_device_id())
+        rm_data = rm_data.to(get_device_id())
 
         # perform forward computation
         with self.ulysses_sharding_manager:
-            rm_data = self.ulysses_sharding_manager.preprocess_data(data=rm_data)
-            data = self.ulysses_sharding_manager.preprocess_data(data=data)
-
             use_dynamic_bsz = self.config.use_dynamic_bsz
             if use_dynamic_bsz:
                 max_token_len = self.config.forward_max_token_len_per_gpu * self.ulysses_sequence_parallel_size
@@ -273,7 +223,9 @@ class EllipticalRewardModelWorker(RewardModelWorker):
                 micro_batches = rm_data.batch.split(self.config.micro_batch_size_per_gpu)
             output = []
             for micro_batch in micro_batches:
-                mean_hidden_states = self._forward_micro_batch(micro_batch, start_of_response=data.batch["prompts"].shape[-1])
+                mean_hidden_states = self._forward_micro_batch(
+                    micro_batch, start_of_response=data.batch["prompts"].shape[-1]
+                )
                 output.append(mean_hidden_states)
             mean_hidden_states = torch.cat(output, dim=0)  # (batch_size)
 
@@ -286,7 +238,6 @@ class EllipticalRewardModelWorker(RewardModelWorker):
 
             # Note that this is only the scores, may not be the final rewards used to train RL
             output = DataProto.from_dict(tensors={"mean_hidden_states": mean_hidden_states})
-            output = self.ulysses_sharding_manager.postprocess_data(data=output) # TODO: check what this does
 
         # https://pytorch.org/docs/stable/notes/fsdp.html#fsdp-notes
         # unshard the root FSDP module
@@ -297,7 +248,7 @@ class EllipticalRewardModelWorker(RewardModelWorker):
         return output
 
     def _compute_bonuses(self, hidden_states, cov_inv, prompt_index: int):
-        if self.config.elliptical.reward_type == 'leave_one_out':
+        if self.config.elliptical.reward_type == "leave_one_out":
             if self.persist_covariance:
                 raise NotImplementedError("Leave-one-out with persistence is not implemented")
             else:
@@ -309,47 +260,34 @@ class EllipticalRewardModelWorker(RewardModelWorker):
                     bonus = (chosen_samp.t() @ leave_one_out_cov_inv @ chosen_samp).flatten().float()
                     bonuses.append(bonus)
 
-                    # d = hidden_states.shape[-1]
-                    # cov_inv_new = torch.eye(d, dtype=torch.float64).cuda() * self.lamb ** -1
-                    # for j in range(len(hidden_states)):
-                    #     if i == j:
-                    #         continue
-                    #     chosen_samp = hidden_states[j].unsqueeze(1)
-                    #     middle_part = torch.inverse(1 + chosen_samp.t() @ cov_inv_new @ chosen_samp)
-                    #     cov_inv_new = cov_inv_new - cov_inv_new @ chosen_samp @ middle_part @ chosen_samp.t() @ cov_inv_new
-                    # chosen_samp = hidden_state.unsqueeze(1)
-                    # bonus_new = (chosen_samp.t() @ cov_inv_new @ chosen_samp).flatten().float()
-                    # assert bonus_new == bonus, f"bonus_new: {bonus_new} != bonus: {bonus}"
-                    # assert torch.allclose(leave_one_out_cov_inv, cov_inv_new)
-
                 bonuses = torch.concat(bonuses)
 
-        elif self.config.elliptical.reward_type == 'leverage':
+        elif self.config.elliptical.reward_type == "leverage":
             if self.persist_covariance:
                 hidden_mean = self.mean_hidden_states_mu_dict[prompt_index]
                 hidden_mean_counter = self.hidden_mean_counter_dict[prompt_index]
 
                 hidden_states = hidden_states - hidden_mean
 
-                numerator = (cov_inv @ hidden_mean.unsqueeze(1) @ hidden_mean.unsqueeze(0) @ cov_inv)
-                denominator = (-1/hidden_mean_counter + hidden_mean.t() @ cov_inv @ hidden_mean)
+                numerator = cov_inv @ hidden_mean.unsqueeze(1) @ hidden_mean.unsqueeze(0) @ cov_inv
+                denominator = -1 / hidden_mean_counter + hidden_mean.t() @ cov_inv @ hidden_mean
                 cov_inv_mean_adjusted = cov_inv - numerator / denominator
                 batch_cov_inv = cov_inv_mean_adjusted.unsqueeze(0).expand(hidden_states.shape[0], -1, -1)
             else:
                 batch_cov_inv = cov_inv.unsqueeze(0).expand(hidden_states.shape[0], -1, -1)
-            
+
             bonuses = (hidden_states.unsqueeze(1) @ batch_cov_inv @ hidden_states.unsqueeze(2)).flatten().float()
 
         return bonuses
 
     def _normalize_bonuses(self, bonuses):
-        if self.normalization == 'none':
+        if self.normalization == "none":
             pass
-        elif self.normalization == 'rnd':
+        elif self.normalization == "rnd":
             std = torch.std(bonuses)
             if std > 0:
                 bonuses = bonuses / std
-        elif self.normalization == 'z_score':
+        elif self.normalization == "z_score":
             mean = torch.mean(bonuses)
             std = torch.std(bonuses)
             if std > 0:
@@ -358,9 +296,9 @@ class EllipticalRewardModelWorker(RewardModelWorker):
                 bonuses = bonuses - mean
         else:
             raise ValueError(f"Unknown normalization: {self.normalization}")
-        
+
         return bonuses
-        
+
     @register(dispatch_mode=Dispatch.ALL_TO_ALL, execute_mode=Execute.RANK_ZERO)
     @DistProfiler.annotate(color="brown")
     def compute_rm_score(self, data: DataProto):
@@ -390,10 +328,10 @@ class EllipticalRewardModelWorker(RewardModelWorker):
                 continue
 
             seen_uids.add(uid)
-            mask = data.non_tensor_batch['uid'] == uid
+            mask = data.non_tensor_batch["uid"] == uid
             filtered_mean_hidden_states = mean_hidden_states[mask]
 
-            prompt_index = data_item.non_tensor_batch['extra_info']['index']
+            prompt_index = data_item.non_tensor_batch["extra_info"]["index"]
 
             if self.persist_covariance:
                 # first update the mean hidden states mu
@@ -403,7 +341,10 @@ class EllipticalRewardModelWorker(RewardModelWorker):
                 else:
                     total_count = self.hidden_mean_counter_dict[prompt_index] + mask.sum()
                     old_mu = self.mean_hidden_states_mu_dict[prompt_index]
-                    new_mu = (old_mu * self.hidden_mean_counter_dict[prompt_index] + filtered_mean_hidden_states.mean(dim=0) * mask.sum()) / total_count
+                    new_mu = (
+                        old_mu * self.hidden_mean_counter_dict[prompt_index]
+                        + filtered_mean_hidden_states.mean(dim=0) * mask.sum()
+                    ) / total_count
                     self.mean_hidden_states_mu_dict[prompt_index] = new_mu
                     self.hidden_mean_counter_dict[prompt_index] = total_count
 
@@ -412,14 +353,14 @@ class EllipticalRewardModelWorker(RewardModelWorker):
 
                 if prompt_index not in self.cov_inv_dict:
                     d = final_mean_hidden_states.shape[-1]
-                    self.cov_inv_dict[prompt_index] = torch.eye(d, dtype=torch.float64).cuda() * self.lamb ** -1
+                    self.cov_inv_dict[prompt_index] = torch.eye(d, dtype=torch.float64).cuda() * self.lamb**-1
                 cov_inv = self.cov_inv_dict[prompt_index]
             else:
                 centered_mean_hidden_states = filtered_mean_hidden_states - filtered_mean_hidden_states.mean(dim=0)
                 final_mean_hidden_states = centered_mean_hidden_states
 
                 d = final_mean_hidden_states.shape[-1]
-                cov_inv = torch.eye(d, dtype=torch.float64).cuda() * self.lamb ** -1
+                cov_inv = torch.eye(d, dtype=torch.float64).cuda() * self.lamb**-1
 
             # update inverse covariance matrix with rank-1 updates
             for hidden_state in final_mean_hidden_states:
@@ -441,7 +382,6 @@ class EllipticalRewardModelWorker(RewardModelWorker):
             reward_tensor[mask, valid_response_lengths - 1] = normalized_bonuses
 
         output = DataProto.from_dict(
-            tensors={"rm_scores": reward_tensor},
-            non_tensors={"raw_bonuses": raw_bonuses_tensor.cpu().numpy()}
+            tensors={"rm_scores": reward_tensor}, non_tensors={"raw_bonuses": raw_bonuses_tensor.cpu().numpy()}
         )
-        return output.to('cpu')
+        return output.to("cpu")

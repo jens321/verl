@@ -19,8 +19,8 @@ import argparse
 import os
 import re
 
-import numpy as np
 import datasets
+import numpy as np
 
 from verl.utils.hdfs_io import copy, makedirs
 

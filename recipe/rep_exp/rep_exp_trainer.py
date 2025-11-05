@@ -18,50 +18,37 @@ PPO Trainer with Ray-based single controller.
 This trainer supports model-agonistic model initialization with huggingface
 """
 
-from ast import DictComp
 import json
 import os
-import time
 import uuid
-from collections import defaultdict
 from copy import deepcopy
-from dataclasses import dataclass, field
 from pprint import pprint
-from typing import Optional, Dict
 
 import numpy as np
 import ray
 import torch
-from omegaconf import OmegaConf, open_dict
-from torch.utils.data import Dataset, Sampler
-from torchdata.stateful_dataloader import StatefulDataLoader
+from omegaconf import OmegaConf
 from tqdm import tqdm
 
 from verl import DataProto
 from verl.experimental.dataset.sampler import AbstractCurriculumSampler
-from verl.protocol import pad_dataproto_to_divisor, unpad_dataproto
-from verl.single_controller.ray import RayClassWithInitArgs, RayResourcePool, RayWorkerGroup
+from verl.single_controller.ray import RayClassWithInitArgs
 from verl.single_controller.ray.base import create_colocated_worker_cls
-from verl.trainer.config import AlgoConfig
-from verl.trainer.ppo import core_algos
-from verl.trainer.ppo.ray_trainer import RayPPOTrainer
 from verl.trainer.ppo.core_algos import AdvantageEstimator, agg_loss
 from verl.trainer.ppo.metric_utils import (
     compute_throughout_metrics,
     compute_timing_metrics,
 )
-from .metric_utils import compute_data_metrics
-from verl.trainer.ppo.mismatch_helper import compute_rollout_importance_weights
+from verl.trainer.ppo.ray_trainer import RayPPOTrainer, apply_kl_penalty, compute_advantage, compute_response_mask
 from verl.trainer.ppo.reward import compute_reward, compute_reward_async
-from verl.trainer.ppo.utils import Role, WorkerType, need_critic, need_reference_policy, need_reward_model
-from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path, should_save_ckpt_esi
+from verl.trainer.ppo.utils import Role
+from verl.utils.checkpoint.checkpoint_manager import should_save_ckpt_esi
 from verl.utils.config import omega_conf_to_dataclass
 from verl.utils.debug import marked_timer
 from verl.utils.metric import reduce_metrics
 from verl.utils.rollout_skip import RolloutSkip
-from verl.utils.seqlen_balancing import calculate_workload, get_seqlen_balanced_partitions, log_seqlen_unbalance
-from verl.utils.torch_functional import masked_mean
-from verl.utils.tracking import ValidationGenerationsLogger
+
+from .metric_utils import compute_data_metrics
 
 
 class RayRepExpTrainer(RayPPOTrainer):
@@ -69,6 +56,7 @@ class RayRepExpTrainer(RayPPOTrainer):
 
     See RayPPOTrainer parent class for more details.
     """
+
     def init_workers(self):
         """Initialize distributed training workers using Ray backend.
 
@@ -109,7 +97,6 @@ class RayRepExpTrainer(RayPPOTrainer):
                 role=str(Role.RefPolicy),
             )
             self.resource_pool_to_cls[resource_pool][str(Role.RefPolicy)] = ref_policy_cls
-
 
         # create a reward model if reward_fn is None
         if self.use_rm and not val_only:
@@ -188,7 +175,7 @@ class RayRepExpTrainer(RayPPOTrainer):
         with open(local_best_metric_to_global_step, "w") as f:
             json.dump(self.best_dev_pass_at_k_to_global_step, f)
 
-    def _update_best_pass_at(self, val_metrics: Dict[str, float], pass_at_k: int) -> bool:
+    def _update_best_pass_at(self, val_metrics: dict[str, float], pass_at_k: int) -> bool:
         """
         Save checkpoint if the validation metrics are the best.
 
@@ -202,7 +189,7 @@ class RayRepExpTrainer(RayPPOTrainer):
                     self.best_dev_pass_at_k[pass_at_k] = val_metrics[k]
                     self.best_dev_pass_at_k_to_global_step[pass_at_k] = self.global_steps
                     return True
-                
+
         return False
 
     def fit(self):

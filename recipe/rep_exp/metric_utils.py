@@ -17,12 +17,14 @@ Metrics related to the RepExp trainer.
 
 from collections import defaultdict
 from functools import partial
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import torch
 
 from verl import DataProto
+from verl.trainer.ppo.metric_utils import _compute_response_info, bootstrap_metric, calc_maj_val
+
 
 def _compute_three_case_stats(data: DataProto, extrinsic_reward_tensor: torch.Tensor) -> dict:
     """
@@ -33,7 +35,7 @@ def _compute_three_case_stats(data: DataProto, extrinsic_reward_tensor: torch.Te
         extrinsic_reward_tensor (torch.Tensor): The extrinsic reward tensor.
 
     Returns:
-        dict[str, float]: A dictionary containing the fraction of samples that have no rollouts correct, 
+        dict[str, float]: A dictionary containing the fraction of samples that have no rollouts correct,
         some rollouts correct, and all rollouts correct.
     """
     no_rollouts_correct = 0
@@ -44,7 +46,7 @@ def _compute_three_case_stats(data: DataProto, extrinsic_reward_tensor: torch.Te
     for uid in data.non_tensor_batch["uid"]:
         if uid in visited_uids:
             continue
-        
+
         visited_uids.add(uid)
         mask = torch.from_numpy(data.non_tensor_batch["uid"] == uid)
 
@@ -57,15 +59,16 @@ def _compute_three_case_stats(data: DataProto, extrinsic_reward_tensor: torch.Te
             some_rollouts_correct += 1
         else:
             raise ValueError(f"Invalid extrinsic reward tensor: {extrinsic_reward_tensor[mask].sum()}")
-        
+
     # Sanity checks
     assert len(visited_uids) == no_rollouts_correct + some_rollouts_correct + all_rollouts_correct
-    
+
     return {
         "no_rollouts_correct_frac": no_rollouts_correct / len(visited_uids),
         "some_rollouts_correct_frac": some_rollouts_correct / len(visited_uids),
         "all_rollouts_correct_frac": all_rollouts_correct / len(visited_uids),
     }
+
 
 def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: bool = False) -> dict[str, Any]:
     """
@@ -79,7 +82,6 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
         batch: A DataProto object containing batch data with token-level scores, rewards, advantages, etc.
         use_critic: Whether to include critic-specific metrics. Defaults to True.
         elliptical: Whether to include elliptical-specific metrics. Defaults to False.
-        unlikely: Whether to include unlikely-specific metrics. Defaults to False.
 
     Returns:
         A dictionary of metrics including:
@@ -104,10 +106,6 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
         sequence_raw_bonuses = batch.non_tensor_batch["raw_bonuses"].sum(-1)
 
         three_case_stats = _compute_three_case_stats(batch, batch.non_tensor_batch["extrinsic_reward"])
-
-    if unlikely:
-        sequence_extrinsic_reward = batch.non_tensor_batch["extrinsic_reward"].sum(-1)
-        sequence_unlikely_scaled_extrinsic_reward = batch.non_tensor_batch["unlikely_scaled_extrinsic_reward"].sum(-1)
 
     advantages = batch.batch["advantages"]
     returns = batch.batch["returns"]
@@ -225,22 +223,6 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
             if elliptical
             else {}
         ),
-        **(
-            {
-                # extrinsic_reward
-                "critic/extrinsic_reward/mean": np.mean(sequence_extrinsic_reward).item(),
-                "critic/extrinsic_reward/max": np.max(sequence_extrinsic_reward).item(),
-                "critic/extrinsic_reward/min": np.min(sequence_extrinsic_reward).item(),
-                "critic/extrinsic_reward/std": np.std(sequence_extrinsic_reward).item(),
-                # unlikely_scaled_extrinsic_reward
-                "critic/unlikely_scaled_extrinsic_reward/mean": np.mean(sequence_unlikely_scaled_extrinsic_reward).item(),
-                "critic/unlikely_scaled_extrinsic_reward/max": np.max(sequence_unlikely_scaled_extrinsic_reward).item(),
-                "critic/unlikely_scaled_extrinsic_reward/min": np.min(sequence_unlikely_scaled_extrinsic_reward).item(),
-                "critic/unlikely_scaled_extrinsic_reward/std": np.std(sequence_unlikely_scaled_extrinsic_reward).item(),
-            }
-            if unlikely
-            else {}
-        ),
         # response length
         "response_length/mean": torch.mean(response_length).detach().item(),
         "response_length/max": torch.max(response_length).detach().item(),
@@ -279,11 +261,13 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, elliptical: 
 
     return metrics
 
+
 def comb_estimator(n: int, c: int, k: int) -> float:
     """Calculates 1 - comb(n - c, k) / comb(n, k)."""
     if n - c < k:
         return 1.0
     return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
+
 
 def process_validation_metrics(
     data_sources: list[str], sample_uids: list[str], infos_dict: dict[str, list[Any]], seed: int = 42
@@ -335,7 +319,7 @@ def process_validation_metrics(
         uid = sample_uids[sample_idx]
         var2vals = data_src2uid2var2vals[data_source][uid]
         for var_name, var_vals in infos_dict.items():
-            var2vals[var_name + metric_postfix].append(var_vals[sample_idx])
+            var2vals[var_name].append(var_vals[sample_idx])
 
     # Calculate metrics for each group
     data_src2uid2var2metric = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
