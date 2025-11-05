@@ -24,12 +24,13 @@ from omegaconf import OmegaConf
 
 from verl.experimental.dataset.sampler import AbstractSampler
 from verl.trainer.constants_ppo import get_ppo_ray_runtime_env
-from verl.trainer.ppo.ray_trainer import RayPPOTrainer
 from verl.trainer.ppo.reward import load_reward_manager
 from verl.trainer.ppo.utils import need_critic, need_reference_policy
 from verl.utils.config import validate_config
 from verl.utils.device import is_cuda_available
 from verl.utils.import_utils import load_extern_type
+
+from .rep_exp_trainer import RayRepExpTrainer
 
 
 @hydra.main(config_path="config", config_name="rep_exp_trainer", version_base=None)
@@ -297,11 +298,18 @@ class TaskRunner:
         from .reward_manager.elliptical_reward_manager import EllipticalRewardManager  # noqa: F401
 
         # Load the reward manager for training and validation.
+        reward_manager_name = config.reward_model.get("reward_manager", "naive")
         reward_fn = load_reward_manager(
-            config, tokenizer, num_examine=0, **config.reward_model.get("reward_kwargs", {})
+            config,
+            tokenizer,
+            num_examine=0,
+            **config.reward_model.get("reward_kwargs", {}).get(reward_manager_name, {}),
         )
         val_reward_fn = load_reward_manager(
-            config, tokenizer, num_examine=1, **config.reward_model.get("reward_kwargs", {})
+            config,
+            tokenizer,
+            num_examine=1,
+            **config.reward_model.get("reward_kwargs", {}).get(reward_manager_name, {}),
         )
 
         resource_pool_manager = self.init_resource_pool_mgr(config)
@@ -328,7 +336,7 @@ class TaskRunner:
         train_sampler = create_rl_sampler(config.data, train_dataset)
 
         # Initialize the PPO trainer.
-        trainer = RayPPOTrainer(
+        trainer = RayRepExpTrainer(
             config=config,
             tokenizer=tokenizer,
             processor=processor,
