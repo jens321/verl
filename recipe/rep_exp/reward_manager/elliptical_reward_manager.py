@@ -19,6 +19,8 @@ import torch
 from verl import DataProto
 from verl.workers.reward_manager import NaiveRewardManager, register
 
+from ..reward_score import default_compute_score
+
 
 @register("elliptical")
 class EllipticalRewardManager(NaiveRewardManager):
@@ -47,7 +49,7 @@ class EllipticalRewardManager(NaiveRewardManager):
             reward_fn_key: The key used to access the data source in the non-tensor batch data. Defaults to
                 "data_source".
         """
-        super().__init__(tokenizer, num_examine, compute_score, reward_fn_key)
+        super().__init__(tokenizer, num_examine, default_compute_score, reward_fn_key)
         self.beta = beta
         self.turn_off_elliptical_if_none_correct = turn_off_elliptical_if_none_correct
         self.turn_off_elliptical_if_some_correct = turn_off_elliptical_if_some_correct
