@@ -1,12 +1,16 @@
 set -x
 
-math_train_path=$HOME/data/gsm8k/train.parquet
-math_test_path=$HOME/data/gsm8k/dev.parquet
+# We'll use GSM8K as a good debugging task
+gsm8k_train_path=$HOME/data/gsm8k/train.parquet
+gsm8k_test_path=$HOME/data/gsm8k/dev.parquet
 
-train_files="['$math_train_path']"
-test_files="['$math_test_path']"
+train_files="['$gsm8k_train_path']"
+test_files="['$gsm8k_test_path']"
 
-PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl.trainer.main_ppo \
+# If you're on a cluster with no internet access, set to OFFLINE=True
+OFFLINE=True
+
+PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=${OFFLINE} python3 -m recipe.rep_exp.main_rep_exp \
  algorithm.adv_estimator=grpo \
  data.train_files="$train_files" \
  data.val_files="$test_files" \
@@ -15,10 +19,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  data.max_response_length=1024 \
  data.filter_overlong_prompts=True \
  data.truncation='error' \
- data.task=countdown \
- data.drop_samples_with_no_adv=False \
  actor_rollout_ref.actor.checkpoint.save_contents='["model","optimizer","extra"]' \
- actor_rollout_ref.actor.checkpoint.remove_previous_optim_and_extra=True \
  actor_rollout_ref.model.path=Qwen/Qwen2.5-0.5B-Instruct \
  actor_rollout_ref.actor.optim.lr=1e-6 \
  actor_rollout_ref.model.use_remove_padding=True \
@@ -36,7 +37,6 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
  actor_rollout_ref.rollout.n=8 \
  actor_rollout_ref.rollout.val_kwargs.n=2 \
- actor_rollout_ref.rollout.train_val_kwargs.n=16 \
  actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=4 \
  actor_rollout_ref.ref.fsdp_config.param_offload=True \
  reward_model.enable=True \
@@ -45,11 +45,9 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  reward_model.model.fsdp_config.param_offload=True \
  reward_model.micro_batch_size_per_gpu=32 \
  reward_model.model.input_tokenizer=null \
- reward_model.elliptical.turn_off_at_global_steps=2 \
  reward_model.elliptical.sparse_dim=8 \
  reward_model.elliptical.enable=True \
  reward_model.elliptical.reward_type=leverage \
- reward_model.elliptical.turn_off_at_highest_pass_at_k=False \
  reward_model.elliptical.normalization=none \
  reward_model.elliptical.persist_covariance=False \
  reward_model.reward_manager=elliptical \
@@ -59,13 +57,6 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_all_correct=False \
  reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_rollout_incorrect=False \
  algorithm.use_kl_in_reward=False \
- trainer.save_best_pass_at_1=False \
- trainer.save_best_pass_at_64=False \
- trainer.save_best_hard_pass_at_1=False \
- trainer.save_best_hard_pass_at_64=False \
- trainer.pass_at_k_freq=-1 \
- trainer.train_random_subset_size=4 \
- trainer.val_hard_subset=False \
  trainer.critic_warmup=0 \
  trainer.logger='["console"]' \
  trainer.val_before_train=False \
@@ -75,8 +66,4 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=True python3 -m verl
  trainer.test_freq=1 \
  trainer.total_epochs=15 \
  trainer.resume_mode=disable \
- trainer.max_actor_ckpt_to_keep=null \
- trainer.seed=41 2>&1 | tee verl_demo.log
-
-#  trainer.resume_mode=resume_path \
-#  trainer.resume_from_path=checkpoints/verl_examples/gsm8k_test/global_step_1 \
+ trainer.max_actor_ckpt_to_keep=null
