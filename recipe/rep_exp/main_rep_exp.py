@@ -207,7 +207,9 @@ class TaskRunner:
             if use_legacy_worker_impl in ["auto", "enable"]:
                 if config.reward_model.strategy in {"fsdp", "fsdp2"}:
                     if config.reward_model.elliptical:
-                        from verl.workers.fsdp_workers import EllipticalRewardModelWorker as RewardModelWorker
+                        from .workers.elliptical_reward_model_worker import (
+                            EllipticalRewardModelWorker as RewardModelWorker,
+                        )
                     else:
                         from verl.workers.fsdp_workers import RewardModelWorker
                 elif config.reward_model.strategy == "megatron":
@@ -290,6 +292,9 @@ class TaskRunner:
         tokenizer = hf_tokenizer(local_path, trust_remote_code=trust_remote_code)
         # Used for multimodal LLM, could be None
         processor = hf_processor(local_path, trust_remote_code=trust_remote_code, use_fast=True)
+
+        # Make sure the elliptical reward manager is registered
+        from .reward_manager.elliptical_reward_manager import EllipticalRewardManager  # noqa: F401
 
         # Load the reward manager for training and validation.
         reward_fn = load_reward_manager(
