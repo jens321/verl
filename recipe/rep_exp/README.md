@@ -30,8 +30,22 @@ sh recipe/rep_exp/train_elliptical.sh dapo-with-aime24 128 0.01 42
 where `$TASK` is the task name, `$SPARSE_DIM` is the sparse dimension, `$BETA` is the beta parameter, and `$SEED` is the seed.
 
 ## Evaluation 📊
+Once done training, you can evaluate the model on the test set by following two steps.
+1. Merge the model checkpoint. 
 
+This is necessary because the model checkpoint is saved in multiple shards (depending on the nubmer of GPUs), and we need to merge them into a single checkpoint.
 
+```bash
+sh recipe/rep_exp/model_merge.sh /path/to/global_step_X/actor # where X is the global step of the checkpoint with the best pass@1 on dev
+```
+
+2. Evaluate the merged model.
+
+```bash
+sh recipe/rep_exp/eval.sh TASK /path/to/global_step_X/actor/hf #where X is the global step of the checkpoint with the best pass@1 on dev
+```
+
+The results should be in a folder named `eval` and saved as a JSON file.
 
 ## Citation 📝
 
@@ -46,4 +60,4 @@ where `$TASK` is the task name, `$SPARSE_DIM` is the sparse dimension, `$BETA` i
 
 ## Contact 📬
 
-If you have any questions or suggestions, feel free to reach out to us at [jtuyls@princeton.edu](mailto:jtuyls@princeton.edu).
+If you have any questions or suggestions, feel free to reach out at [jtuyls@princeton.edu](mailto:jtuyls@princeton.edu).
