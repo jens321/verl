@@ -1,5 +1,5 @@
-TASK=${1} # math, gsm8k, dapo-with-aime2425
-SPARSE_DIM=${2} # the original paper used 32 for math/gsm8k, 128 for dapo-with-aime2425
+TASK=${1} # math, gsm8k, dapo-with-aime24
+SPARSE_DIM=${2} # the original paper used 32 for math/gsm8k, 128 for dapo-with-aime24
 BETA=${3} # 0.01
 SEED=${4}
 
@@ -11,7 +11,7 @@ dev_files="['$dev_path']"
 
 # Adjust things a bit for dapo-aime training since it has longer generations
 # and hence is slower and consumes more memory
-if [ ${TASK} == "dapo-with-aime2425" ]; then
+if [ ${TASK} == "dapo-with-aime24" ]; then
     TEST_FREQ=10
     SAVE_FREQ=10
     TRAIN_BATCH_SIZE=512

@@ -28,12 +28,11 @@ if __name__ == "__main__":
         "parquet",
     )
     parser = argparse.ArgumentParser()
-    parser.add_argument("--local_dir", default="~/data/dapo-with-aime2425")
+    parser.add_argument("--local_dir", default="~/data/dapo-with-aime24")
     parser.add_argument("--hdfs_dir", default=None)
     parser.add_argument("--dapo_dataset_path", type=str, default="ftajwar/deduplicated_dapo_dataset")
     parser.add_argument("--aime24_part_1_dataset_path", type=str, default="MathArena/aime_2024_I")
     parser.add_argument("--aime24_part_2_dataset_path", type=str, default="MathArena/aime_2024_II")
-    parser.add_argument("--aime25_dataset_path", type=str, default="MathArena/aime_2025")
     parser.add_argument("--train_size", type=int, default=4096)
 
     args = parser.parse_args()
@@ -52,18 +51,12 @@ if __name__ == "__main__":
     aime24_dataset_path_part_2 = args.aime24_part_2_dataset_path
     aime24_dataset_part_2 = datasets.load_dataset(aime24_dataset_path_part_2, trust_remote_code=True)
 
-    # Load AIME 2025 dataset for testing
-    aime25_dataset_path = args.aime25_dataset_path
-    aime25_dataset = datasets.load_dataset(aime25_dataset_path, trust_remote_code=True)
-
     train_dataset = dapo_dataset["train"]
     train_dataset = train_dataset.select(np.random.choice(len(train_dataset), size=args.train_size, replace=False))
 
     dev_dataset_aime24_part_1 = aime24_dataset_part_1["train"]
     dev_dataset_aime24_part_2 = aime24_dataset_part_2["train"]
     dev_dataset = datasets.concatenate_datasets([dev_dataset_aime24_part_1, dev_dataset_aime24_part_2])
-
-    test_dataset = aime25_dataset["train"]
 
     instruction_following = "Let's think step by step and output the final answer within \\boxed{}."
 
@@ -101,14 +94,12 @@ if __name__ == "__main__":
 
     train_dataset = train_dataset.map(function=make_map_fn("train"), with_indices=True)
     dev_dataset = dev_dataset.map(function=make_map_fn("test"), with_indices=True)
-    test_dataset = test_dataset.map(function=make_map_fn("test"), with_indices=True)
 
     local_dir = args.local_dir
     hdfs_dir = args.hdfs_dir
 
     train_dataset.to_parquet(os.path.join(local_dir, "train.parquet"))
     dev_dataset.to_parquet(os.path.join(local_dir, "dev.parquet"))
-    test_dataset.to_parquet(os.path.join(local_dir, "test.parquet"))
 
     if hdfs_dir is not None:
         makedirs(hdfs_dir)

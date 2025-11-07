@@ -1,6 +1,6 @@
 BETA=0.01
-for TASK in math gsm8k dapo-with-aime2425; do
-    if [ ${TASK} == "dapo-with-aime2425" ]; then
+for TASK in math gsm8k dapo-with-aime24; do
+    if [ ${TASK} == "dapo-with-aime24" ]; then
         SPARSE_DIM=128
     else
         SPARSE_DIM=32

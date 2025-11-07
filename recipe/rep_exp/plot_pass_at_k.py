@@ -27,7 +27,7 @@ from matplotlib.lines import Line2D
 
 # Content configuration
 EVAL_FOLDER = "./eval"
-TASKS = ["math", "gsm8k", "dapo-with-aime2425"]
+TASKS = ["math", "gsm8k", "dapo-with-aime24"]
 SEEDS = [41, 42, 43]
 ALGORITHMS = ["grpo", "elliptical", "untrained", "unlikely"]
 CHECKPOINT_TYPE = "best_pass@1"
@@ -47,7 +47,7 @@ LEGEND_FONT_SIZE = 8
 TASK_TO_NICE_NAME = {
     "math": "MATH",
     "gsm8k": "GSM8K",
-    "dapo-with-aime2425": "AIME 2024",
+    "dapo-with-aime24": "AIME 2024",
     "countdown-4": "Countdown",
 }
 
@@ -70,7 +70,7 @@ TASK_ALGO_TO_MARKER_DELTA = {
         "grpo": -0.05,
         "unlikely": -0.1,
     },
-    "dapo-with-aime2425": {
+    "dapo-with-aime24": {
         "grpo": -0.17,
         "unlikely": -0.15,
     },
@@ -87,7 +87,7 @@ TASK_ALGO_TO_MARKER_DELTA = {
 TASK_TO_MOVE_UP = {
     "math": 0.004,
     "gsm8k": 0.002,
-    "dapo-with-aime2425": 0.008,
+    "dapo-with-aime24": 0.008,
     "countdown-4": 0.008,
 }
 
@@ -282,7 +282,7 @@ def main():
             elif task == "gsm8k":
                 y_min = 0.925
                 ax.set_ylim(top=0.995, bottom=y_min)
-            elif task == "dapo-with-aime2425":
+            elif task == "dapo-with-aime24":
                 y_min = 0.1
                 ax.set_ylim(bottom=y_min, top=0.63)
 
