@@ -1,149 +1,104 @@
-TASK=dapo-with-aime2425 # math, gsm8k, countdown-4, dapo-with-aime2425
-ALGORITHM=grpo
-MODEL_PATH=Qwen/Qwen2.5-7B-Instruct
-SPARSE_DIM=128
-BETA=0.01
-ROLLOUTS=8
-REWARD_TYPE=leverage
-RANDOMIZE_SPARSE_MATRIX=True
-TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT=True
-TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT=False
-TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT=False
-TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT=False
-TURN_OFF_AT_HIGHEST_PASS_AT_K=False
-TRAIN_RANDOM_SUBSET_SIZE=512
-ELLIPTICAL_NORMALIZATION=none
-PERSIST_COVARIANCE=False
-TRAIN_VAL_N=$((2 * ${ROLLOUTS})) # always double the rollout size since we're estimating pass@k where k is the rollout size
-ALPHA=1.0
-TEST_FREQ=20
-SAVE_FREQ=20
-RESUME_MODE=disable
-RESUME_FROM_PATH=''
-USE_KL_LOSS=True
-TURN_OFF_AT_GLOBAL_STEPS=-1
-PPO_EPOCHS=1
-SAVE_BEST_PASS_AT_1=False
-SAVE_BEST_HARD_PASS_AT_1=False
-SAVE_BEST_PASS_AT_64=False
-SAVE_BEST_HARD_PASS_AT_64=False
-CHECKPOINT_SAVE_CONTENTS='["model","optimizer","extra"]'
-MAX_ACTOR_CKPT_TO_KEEP=null
-REWARD_MODEL_ENABLE=True
-ELLIPTICAL_ENABLE=True
-REWARD_MANAGER=elliptical
-TRAIN_BATCH_SIZE=1024 # default: 1024
-PPO_MINI_BATCH_SIZE=256 # default: 256
-REMOVE_PREVIOUS_OPTIM_AND_EXTRA=True
+TASK=${1} # math, gsm8k, dapo-with-aime2425
+SPARSE_DIM=${2} # the original paper used 32 for math/gsm8k, 128 for dapo-with-aime2425
+BETA=${3} # 0.01
+SEED=${4}
 
-if [ ${ALGORITHM} == "dr_grpo" ]; then
-    LOSS_AGG_MODE="seq-mean-token-sum-norm"
-    KL_LOSS_COEF=0.0
-    NORM_ADV_BY_STD_IN_GRPO=False
-else
-    LOSS_AGG_MODE="token-mean"
-    KL_LOSS_COEF=0.0 # default: 0.001
-    NORM_ADV_BY_STD_IN_GRPO=True
-fi
+train_path=$HOME/data/${TASK}/train.parquet
+dev_path=$HOME/data/${TASK}/dev.parquet
 
-if [ ${TURN_OFF_AT_HIGHEST_PASS_AT_K} == True ]; then
-    PASS_AT_K_FREQ=5
-else
-    PASS_AT_K_FREQ=-1
-fi
+train_files="['$train_path']"
+dev_files="['$dev_path']"
 
+# Adjust things a bit for dapo-aime training since it has longer generations
+# and hence is slower and consumes more memory
 if [ ${TASK} == "dapo-with-aime2425" ]; then
     TEST_FREQ=10
     SAVE_FREQ=10
     TRAIN_BATCH_SIZE=512
     PPO_MINI_BATCH_SIZE=128
+
+    MAX_PROMPT_LENGTH=$((1024 * 2))
+    MAX_RESPONSE_LENGTH=$((1024 * 8))
+    MAX_NUM_BATCHED_TOKENS=$((MAX_PROMPT_LENGTH + MAX_RESPONSE_LENGTH))
+    GPU_MEMORY_UTILIZATION=0.5
+    PPO_MICRO_BATCH_SIZE_PER_GPU=8
+    REWARD_MODEL_MICRO_BATCH_SIZE_PER_GPU=16
+else
+    TEST_FREQ=20
+    SAVE_FREQ=20
+    TRAIN_BATCH_SIZE=1024
+    PPO_MINI_BATCH_SIZE=256
+
+    MAX_PROMPT_LENGTH=1024
+    MAX_RESPONSE_LENGTH=1024
+    MAX_NUM_BATCHED_TOKENS=8192
+    GPU_MEMORY_UTILIZATION=0.6
+    PPO_MICRO_BATCH_SIZE_PER_GPU=16
+    REWARD_MODEL_MICRO_BATCH_SIZE_PER_GPU=32
 fi
 
-for SEED in 44 45; do
-    echo "Running job on ${TASK} with the following parameters:"
-    echo "ALGORITHM: ${ALGORITHM}"
-    echo "MODEL_PATH: ${MODEL_PATH}"
-    echo "REWARD_MODEL_ENABLE: ${REWARD_MODEL_ENABLE}"
-    echo "ELLIPTICAL_ENABLE: ${ELLIPTICAL_ENABLE}"
-    echo "SPARSE_DIM: ${SPARSE_DIM}"
-    echo "REWARD_MANAGER: ${REWARD_MANAGER}"
-    echo "SEED: ${SEED}"
-    echo "BETA: ${BETA}"
-    echo "ROLLOUTS: ${ROLLOUTS}"
-    echo "REWARD_TYPE: ${REWARD_TYPE}"
-    echo "RANDOMIZE_SPARSE_MATRIX: ${RANDOMIZE_SPARSE_MATRIX}"
-    echo "TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT: ${TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT}"
-    echo "TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT: ${TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT}"
-    echo "TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT: ${TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT}"
-    echo "LOSS_AGG_MODE: ${LOSS_AGG_MODE}"
-    echo "USE_KL_LOSS: ${USE_KL_LOSS}"
-    echo "NORM_ADV_BY_STD_IN_GRPO: ${NORM_ADV_BY_STD_IN_GRPO}"
-    echo "TURN_OFF_AT_HIGHEST_PASS_AT_K: ${TURN_OFF_AT_HIGHEST_PASS_AT_K}"
-    echo "PASS_AT_K_FREQ: ${PASS_AT_K_FREQ}"
-    echo "TRAIN_RANDOM_SUBSET_SIZE: ${TRAIN_RANDOM_SUBSET_SIZE}"
-    echo "TRAIN_VAL_N: ${TRAIN_VAL_N}"
-    echo "ALPHA: ${ALPHA}"
-    echo "TEST_FREQ: ${TEST_FREQ}"
-    echo "SAVE_FREQ: ${SAVE_FREQ}"
-    echo "ELLIPTICAL_NORMALIZATION: ${ELLIPTICAL_NORMALIZATION}"
-    echo "RESUME_MODE: ${RESUME_MODE}"
-    echo "RESUME_FROM_PATH: ${RESUME_FROM_PATH}"
-    echo "PERSIST_COVARIANCE: ${PERSIST_COVARIANCE}"
-    echo "KL_LOSS_COEF: ${KL_LOSS_COEF}"
-    echo "TURN_OFF_AT_GLOBAL_STEPS: ${TURN_OFF_AT_GLOBAL_STEPS}"
-    echo "PPO_EPOCHS: ${PPO_EPOCHS}"
-    echo "TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT: ${TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT}"
-    echo "SAVE_BEST_PASS_AT_1: ${SAVE_BEST_PASS_AT_1}"
-    echo "SAVE_BEST_PASS_AT_64: ${SAVE_BEST_PASS_AT_64}"
-    echo "CHECKPOINT_SAVE_CONTENTS: ${CHECKPOINT_SAVE_CONTENTS}"
-    echo "SAVE_BEST_HARD_PASS_AT_1: ${SAVE_BEST_HARD_PASS_AT_1}"
-    echo "SAVE_BEST_HARD_PASS_AT_64: ${SAVE_BEST_HARD_PASS_AT_64}"
-    echo "MAX_ACTOR_CKPT_TO_KEEP: ${MAX_ACTOR_CKPT_TO_KEEP}"
-    echo "TRAIN_BATCH_SIZE: ${TRAIN_BATCH_SIZE}"
-    echo "PPO_MINI_BATCH_SIZE: ${PPO_MINI_BATCH_SIZE}"
-    echo "REMOVE_PREVIOUS_OPTIM_AND_EXTRA: ${REMOVE_PREVIOUS_OPTIM_AND_EXTRA}"
-    sbatch --job-name=${TASK}_elliptical_seed_${SEED}_kl_${KL_LOSS_COEF}_ppo_epochs_${PPO_EPOCHS}_beta_${BETA} scripts/train_elliptical.slurm \
-        ${MODEL_PATH} \
-        ${REWARD_MODEL_ENABLE} \
-        ${ELLIPTICAL_ENABLE} \
-        ${SPARSE_DIM} \
-        ${REWARD_MANAGER} \
-        ${SEED} \
-        ${BETA} \
-        ${ROLLOUTS} \
-        ${REWARD_TYPE} \
-        ${RANDOMIZE_SPARSE_MATRIX} \
-        ${TURN_OFF_ELLIPTICAL_IF_NONE_CORRECT} \
-        ${TURN_OFF_ELLIPTICAL_IF_SOME_CORRECT} \
-        ${TURN_OFF_ELLIPTICAL_IF_ALL_CORRECT} \
-        ${LOSS_AGG_MODE} \
-        ${USE_KL_LOSS} \
-        ${NORM_ADV_BY_STD_IN_GRPO} \
-        ${ALGORITHM} \
-        ${TURN_OFF_AT_HIGHEST_PASS_AT_K} \
-        ${PASS_AT_K_FREQ} \
-        ${TRAIN_RANDOM_SUBSET_SIZE} \
-        ${TRAIN_VAL_N} \
-        ${ALPHA} \
-        ${TEST_FREQ} \
-        ${SAVE_FREQ} \
-        ${ELLIPTICAL_NORMALIZATION} \
-        ${RESUME_MODE} \
-        "${RESUME_FROM_PATH}" \
-        ${PERSIST_COVARIANCE} \
-        ${KL_LOSS_COEF} \
-        ${TASK} \
-        ${TURN_OFF_AT_GLOBAL_STEPS} \
-        ${PPO_EPOCHS} \
-        ${TURN_OFF_ELLIPTICAL_IF_ROLLOUT_INCORRECT} \
-        ${SAVE_BEST_PASS_AT_1} \
-        ${SAVE_BEST_PASS_AT_64} \
-        ${CHECKPOINT_SAVE_CONTENTS} \
-        ${SAVE_BEST_HARD_PASS_AT_1} \
-        ${SAVE_BEST_HARD_PASS_AT_64} \
-        ${MAX_ACTOR_CKPT_TO_KEEP} \
-        ${TRAIN_BATCH_SIZE} \
-        ${PPO_MINI_BATCH_SIZE} \
-        ${REMOVE_PREVIOUS_OPTIM_AND_EXTRA}
-    echo "--------------------------------"
-done
+OFFLINE=True
+
+PYTHONUNBUFFERED=1 TRANSFORMERS_OFFLINE=${OFFLINE} python3 -u -m recipe.rep_exp.main_rep_exp \
+    algorithm.adv_estimator=grpo \
+    data.train_files="$train_files" \
+    data.val_files="$dev_files" \
+    data.train_batch_size=$TRAIN_BATCH_SIZE \
+    data.max_prompt_length=$MAX_PROMPT_LENGTH \
+    data.max_response_length=$MAX_RESPONSE_LENGTH \
+    data.filter_overlong_prompts=True \
+    data.truncation='error' \
+    actor_rollout_ref.model.path=Qwen/Qwen2.5-7B-Instruct \
+    actor_rollout_ref.actor.optim.lr=1e-6 \
+    actor_rollout_ref.model.use_remove_padding=True \
+    actor_rollout_ref.actor.ppo_mini_batch_size=$PPO_MINI_BATCH_SIZE \
+    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=$PPO_MICRO_BATCH_SIZE_PER_GPU \
+    actor_rollout_ref.actor.kl_loss_coef=0.0 \
+    actor_rollout_ref.actor.kl_loss_type=low_var_kl \
+    actor_rollout_ref.actor.entropy_coeff=0 \
+    actor_rollout_ref.actor.ppo_epochs=1 \
+    actor_rollout_ref.model.enable_gradient_checkpointing=True \
+    actor_rollout_ref.actor.fsdp_config.param_offload=False \
+    actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \
+    actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=16 \
+    actor_rollout_ref.rollout.tensor_model_parallel_size=2 \
+    actor_rollout_ref.rollout.max_num_batched_tokens=$MAX_NUM_BATCHED_TOKENS \
+    actor_rollout_ref.rollout.name=vllm \
+    actor_rollout_ref.rollout.gpu_memory_utilization=$GPU_MEMORY_UTILIZATION \
+    actor_rollout_ref.rollout.n=8 \
+    actor_rollout_ref.rollout.train_val_kwargs.n=$TRAIN_VAL_N \
+    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16 \
+    actor_rollout_ref.ref.fsdp_config.param_offload=True \
+    reward_model.enable=True \
+    reward_model.model.path=Qwen/Qwen2.5-7B-Instruct \
+    reward_model.model.use_remove_padding=False \
+    reward_model.model.fsdp_config.param_offload=True \
+    reward_model.micro_batch_size_per_gpu=$REWARD_MODEL_MICRO_BATCH_SIZE_PER_GPU \
+    reward_model.model.input_tokenizer=null \
+    reward_model.elliptical.enable=True \
+    reward_model.elliptical.sparse_dim=$SPARSE_DIM \
+    reward_model.elliptical.reward_type=leverage \
+    reward_model.elliptical.randomize_sparse_matrix=True \
+    reward_model.elliptical.normalization=none \
+    reward_model.elliptical.persist_covariance=False \
+    reward_model.reward_manager=elliptical \
+    reward_model.reward_kwargs.elliptical.beta=$BETA \
+    reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_none_correct=True \
+    reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_some_correct=False \
+    reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_all_correct=False \
+    reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_rollout_incorrect=False \
+    actor_rollout_ref.actor.loss_agg_mode=token-mean \
+    actor_rollout_ref.actor.use_kl_loss=True \
+    algorithm.norm_adv_by_std_in_grpo=True \
+    algorithm.use_kl_in_reward=False \
+    trainer.critic_warmup=0 \
+    trainer.logger='["console","wandb"]' \
+    trainer.project_name='rep-exp' \
+    trainer.experiment_name="${TASK}_elliptical_seed_${SEED}_beta_${BETA}_sparse_dim_${SPARSE_DIM}" \
+    trainer.n_gpus_per_node=8 \
+    trainer.nnodes=1 \
+    trainer.save_freq=$SAVE_FREQ \
+    trainer.test_freq=$TEST_FREQ \
+    trainer.total_epochs=1000 \
+    trainer.resume_mode=disable \
+    trainer.resume_from_path=''

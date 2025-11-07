@@ -1,19 +1,19 @@
 set -x
 
 # We'll use GSM8K as a good debugging task
-gsm8k_train_path=$HOME/data/gsm8k/train.parquet
-gsm8k_test_path=$HOME/data/gsm8k/dev.parquet
+train_path=$HOME/data/gsm8k/train.parquet
+dev_path=$HOME/data/gsm8k/dev.parquet
 
-train_files="['$gsm8k_train_path']"
-test_files="['$gsm8k_test_path']"
+train_files="['$train_path']"
+dev_files="['$dev_path']"
 
 # If you're on a cluster with no internet access, set to OFFLINE=True
-OFFLINE=True
+OFFLINE=False
 
 PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=${OFFLINE} python3 -m recipe.rep_exp.main_rep_exp \
  algorithm.adv_estimator=grpo \
  data.train_files="$train_files" \
- data.val_files="$test_files" \
+ data.val_files="$dev_files" \
  data.train_batch_size=32 \
  data.max_prompt_length=1024 \
  data.max_response_length=1024 \
@@ -52,7 +52,7 @@ PYTHONUNBUFFERED=1 WANDB_MODE=disabled TRANSFORMERS_OFFLINE=${OFFLINE} python3 -
  reward_model.elliptical.persist_covariance=False \
  reward_model.reward_manager=elliptical \
  reward_model.reward_kwargs.elliptical.beta=1.0 \
- reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_none_correct=False \
+ reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_none_correct=True \
  reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_some_correct=False \
  reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_all_correct=False \
  reward_model.reward_kwargs.elliptical.turn_off_elliptical_if_rollout_incorrect=False \
