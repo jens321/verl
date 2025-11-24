@@ -75,6 +75,7 @@ verl is fast with:
    algo/spin.md
    algo/sppo.md
    algo/entropy.md
+   algo/repexp.md
    algo/opo.md
    algo/baseline.md
    algo/gpg.md
@@ -131,6 +132,7 @@ verl is fast with:
    advance/fully_async
    data/transfer_queue.md
    advance/grafana_prometheus.md
+   advance/fp8.md
 
 .. toctree::
    :maxdepth: 1
@@ -139,6 +141,7 @@ verl is fast with:
    amd_tutorial/amd_build_dockerfile_page.rst
    amd_tutorial/amd_vllm_page.rst
    ascend_tutorial/ascend_quick_start.rst
+   ascend_tutorial/ascend_consistency.rst
    ascend_tutorial/ascend_profiling_zh.rst
    ascend_tutorial/ascend_profiling_en.rst
    ascend_tutorial/dockerfile_build_guidance.rst
